@@ -47,6 +47,7 @@ R = TypeVar('R')
 IMTYPES = {
     'T1w': 'anat',
     'T2w': 'anat',
+    'FLAIR': 'anat',
     'bold': 'func',
     'dwi': 'dwi',
 }
