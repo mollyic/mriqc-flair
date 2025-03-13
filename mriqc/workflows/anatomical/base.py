@@ -825,11 +825,19 @@ def _get_mod(in_file):
     extension = ''.join(in_file.suffixes)
     return in_file.name.replace(extension, '').split('_')[-1]
 
+def _select_tissue(modality, inlist):
+    max_tissue = {'T1w'     : {'tissue':'WM', 'file': 'segment_03'},
+                  'T2w'     : {'tissue':'CSF', 'file': 'segment_01'},
+                  'FLAIR'   : {'tissue':'GM', 'file': 'segment_02'}}
+
+    tissue = max_tissue[modality]['tissue']
+    return [f for f in inlist if tissue in f][0]
 
 def _pop(inlist):
     if isinstance(inlist, (list, tuple)):
         return inlist[0]
     return inlist
+
 
 def percentile_enhanced(in_arr, tissue_arr, percentile):
     import numpy as np
