@@ -1,6 +1,5 @@
 from nipype import Node, Workflow, MapNode, Function
 from nipype.interfaces import utility as niu
-#from niworkflows.interfaces.header import CopyXForm
 from nipype.interfaces.ants import (ImageMath, MultiplyImages,ThresholdImage)
 from collections import OrderedDict
 
@@ -53,20 +52,20 @@ def init_atropos_wf(name="atropos_wf", use_random_seed=True, omp_nthreads=None,m
 
     # Pad images with zeros before processing
     pad_segm = Node(
-        ImageMath(operation="PadImage", 
+        ImageMath(operation="PadImage",
                   op2=f"{padding}"),
         name="segm_pad")
 
     # Split segmentation in binary masks
     sel_labels = Node(
-            Function(function=_select_labels, 
+            Function(function=_select_labels,
                          output_names=[ "out_csf", "out_gm","out_wm"]),
             name="segm_binarize")
 
     csf_wf = _tissue_wf(tissue='csf')
     wm_wf = _tissue_wf(tissue='wm')
     gm_wf = _tissue_wf(tissue='gm')
-    
+
     seg_builder = _rebuild_segmentation()
 
     mask_pvms = MapNode(
@@ -96,11 +95,11 @@ def init_atropos_wf(name="atropos_wf", use_random_seed=True, omp_nthreads=None,m
         (inputnode, mask_pvms,      [("modality", "modality")]),
         (inputnode, mask_pvms,      [("posteriors", "pvm")]),
         (seg_builder, mask_pvms,    [("outputnode.proc_seg_lst", "seg_lst")]),
-        (seg_builder, outputnode,   [("outputnode.sumd_tissues", "out_segm"), 
+        (seg_builder, outputnode,   [("outputnode.sumd_tissues", "out_segm"),
                                      ("outputnode.proc_seg_lst", "out_segs_proc")]),
-        # (inputnode, outputnode,     [("classified_image", "out_segm"), 
+        # (inputnode, outputnode,     [("classified_image", "out_segm"),
         #                              ("posteriors", "out_posterior")]),
-        (mask_pvms, outputnode,     [("out_pvm_msk", "out_pvms"), 
+        (mask_pvms, outputnode,     [("out_pvm_msk", "out_pvms"),
                                      ("eroded", "out_eroded")]),
     ])
     return wf
@@ -108,10 +107,10 @@ def init_atropos_wf(name="atropos_wf", use_random_seed=True, omp_nthreads=None,m
 def _rebuild_segmentation():
     """
     Reassemble segmentation after processing
-    
+
     Outputs:
         1. Reassembled segmentation
-        2. Segmentation list  
+        2. Segmentation list
     """
     inputnode = Node(niu.IdentityInterface(fields=['csf', 'gm', 'wm']), name = 'inputnode')
     outputnode = Node(niu.IdentityInterface(fields=['sumd_tissues', 'proc_seg_lst']), name = 'outputnode')
@@ -122,25 +121,25 @@ def _rebuild_segmentation():
     add_gm_csf = Node(ImageMath(operation="addtozero", output_image = '%s_addcsf.nii.gz'), name="add_gm_csf")
     add_all = Node(ImageMath(operation="addtozero", output_image = 'segment_processed.nii.gz'), name="add_all")
     merge_tpms = Node(Function(function=_merged, output_names=['proc_seg_lst']), name="merge_tpms")
-    
+
     bin_gmcsf = Node(ThresholdImage(dimension=3, th_low=0.01, th_high=1e7, inside_value=0, outside_value=1), name="bin_gmcsf")
     #binMult_gmcsf = Node(ImageMath(operation='mul', op2=-1), name="binMult_gmcsf")
     #binMultAdd_gmcsf = Node(ImageMath(add='add', op2=1), name="binMultAdd_gmcsf")
-    
-    clean_wm = Node(MultiplyImages(dimension=3, output_product_image = f'seg-wm_multiply.nii.gz'), name = 'clean_wm')     
+
+    clean_wm = Node(MultiplyImages(dimension=3, output_product_image = f'seg-wm_multiply.nii.gz'), name = 'clean_wm')
 
     wf = Workflow(name ='segm_sum')
     wf.connect([
-        (inputnode, add_gm_csf,             [('gm', 'op1'), ('csf', 'op2')]), 
+        (inputnode, add_gm_csf,             [('gm', 'op1'), ('csf', 'op2')]),
         (inputnode, add_all,                [('wm', 'op1')]),
-        
+
         (add_gm_csf, bin_gmcsf,             [('output_image', 'input_image')]),
-        # (bin_gmcsf, binMult_gmcsf,          [('output_image', 'op1')]), 
-        # (binMult_gmcsf, binMultAdd_gmcsf,   [('output_image', 'op1')]), 
-        # (binMultAdd_gmcsf, clean_wm,        [('output_image', 'first_input')]), 
-        
-        (bin_gmcsf, clean_wm,               [('output_image', 'first_input')]), 
-        (inputnode, clean_wm,               [('wm', 'second_input')]), 
+        # (bin_gmcsf, binMult_gmcsf,          [('output_image', 'op1')]),
+        # (binMult_gmcsf, binMultAdd_gmcsf,   [('output_image', 'op1')]),
+        # (binMultAdd_gmcsf, clean_wm,        [('output_image', 'first_input')]),
+
+        (bin_gmcsf, clean_wm,               [('output_image', 'first_input')]),
+        (inputnode, clean_wm,               [('wm', 'second_input')]),
 
         (add_gm_csf, add_all,               [('output_image', 'op2')]),
         (add_all, outputnode,               [('output_image', 'sumd_tissues')]),
@@ -149,20 +148,20 @@ def _rebuild_segmentation():
 
         (merge_tpms, outputnode,            [("proc_seg_lst", "proc_seg_lst")]),
         ])
-    
+
     return wf
 
 
 def _mask_pvms(pvm, modality, seg_lst):
     import nibabel as nb
-    import re 
+    import re
     from nipype.utils.filemanip import fname_presuffix
     from os import getcwd
     from scipy.ndimage import binary_erosion, generate_binary_structure, label, binary_fill_holes
     from mriqc.config import ATROPOS_MODELS
     import numpy as np
 
-    model = ATROPOS_MODELS[modality]    
+    model = ATROPOS_MODELS[modality]
     idx = re.search(r'segment_(\d+).nii.gz', pvm).group(1)
     tissue = next(key for key, val in model.items() if f'0{val}' == idx)
     segmsk = next(file for file in seg_lst if re.search(f'seg-{tissue}', file))
@@ -173,14 +172,14 @@ def _mask_pvms(pvm, modality, seg_lst):
     segmask_bin = (segmsk_data > 0).astype(np.int_) #boolean operation
 
     pvm_maskd = pvm_data * segmask_bin
-    out_pvm_msk = fname_presuffix(pvm, suffix=f"_class-{idx}_tissue-{tissue.upper()}_mskseg", newpath=getcwd())             
+    out_pvm_msk = fname_presuffix(pvm, suffix=f"_class-{idx}_tissue-{tissue.upper()}_mskseg", newpath=getcwd())
     nb.Nifti1Image(pvm_maskd.astype(np.float32), pvm_nii.affine, pvm_nii.header).to_filename(out_pvm_msk)
     eroded = out_pvm_msk
-    
+
     if modality == 'T2w' and tissue == 'wm':
         erode_iter =2
         connect = 2
-   
+
         # Erode WM to remove CSF overlap in T2w
         eroded_data = binary_erosion(segmask_bin, structure=generate_binary_structure(3, connectivity=connect), iterations=erode_iter).astype(np.uint8)
         arr_labels, features = label(eroded_data)
@@ -192,17 +191,17 @@ def _mask_pvms(pvm, modality, seg_lst):
         print('T2w')
         print(f'\t *{tissue}:')
         print(f'\t *{out_t2_msk}:')
-        pvm_maskd_lcc = pvm_data * fillh   
+        pvm_maskd_lcc = pvm_data * fillh
         nb.Nifti1Image(pvm_maskd_lcc.astype(np.float32), pvm_nii.affine, pvm_nii.header).to_filename(out_t2_msk)
         eroded = out_t2_msk
 
- 
+
     return out_pvm_msk, eroded
 
 def _select_labels(in_segm, modality):
     """
     Extract tissues from FSL segmentation and binarizes each tissue type
-    
+
     Outputs:
         * List of binarized tissues
     """
@@ -212,11 +211,11 @@ def _select_labels(in_segm, modality):
     from nipype.utils.filemanip import fname_presuffix
     from mriqc.config import ATROPOS_MODELS
 
-    model = ATROPOS_MODELS[modality]    
+    model = ATROPOS_MODELS[modality]
     cwd = getcwd()
     nii = nb.load(in_segm)
     label_data = np.asanyarray(nii.dataobj).astype("uint8")
-    
+
     for tissue, label in model.items():
         newnii = nii.__class__(np.uint8(label_data == label), nii.affine, nii.header)
         newnii.set_data_dtype("uint8")
@@ -234,23 +233,23 @@ def _select_labels(in_segm, modality):
         print(f'\t * label: {label}')
         print(f'\t * in_segm: {in_segm}')
         print(f'\t * out_file: {out_file}')
-        
+
     return out_csf, out_gm, out_wm
 
-def _tissue_wf(tissue, padding=10): 
+def _tissue_wf(tissue, padding=10):
     """
     Perform processing for segmentations relative to each tissue type.
 
     Outputs:
         1. Processed segmentation tissue
         2. Eroded CSF
-    """    
+    """
     inputnode = Node(niu.IdentityInterface(fields=['in_file']), name = 'inputnode')
     outputnode = Node(niu.IdentityInterface(fields=['out_tissue', 'erode_csf']), name='outputnode')
 
     lcc = Node(ImageMath(operation="GetLargestComponent", copy_header=True), name ='getLCC')
     fill_holes = Node(ImageMath(operation="FillHoles", op2="2", copy_header=True), name="fill_holes")
-    multiply_imgs = Node(MultiplyImages(dimension=3, output_product_image = f'seg-{tissue}_multiply-getLCCxfill_holes.nii.gz'), name = 'multiply_imgs')     
+    multiply_imgs = Node(MultiplyImages(dimension=3, output_product_image = f'seg-{tissue}_multiply-getLCCxfill_holes.nii.gz'), name = 'multiply_imgs')
     morph_erode = Node(ImageMath(operation="ME", op2="0.05", copy_header=True), name="morph_erode")
     reindex_tissue = Node(MultiplyImages(dimension=3, output_product_image = f'seg-{tissue}_processed.nii.gz'), name = 'reindex_tissue')
     depad = Node(ImageMath(operation="PadImage", op2="-%d" % padding), name="depad")
@@ -260,12 +259,12 @@ def _tissue_wf(tissue, padding=10):
     def _get_idx(file):
         import re
         return int(re.search('class-(\d+)', file).group(1))
-    
+
     if tissue == 'csf':
         workflow.connect([
-            (inputnode, morph_erode,                [('in_file', 'op1')]), 
+            (inputnode, morph_erode,                [('in_file', 'op1')]),
             (inputnode, reindex_tissue,             [('in_file', 'first_input')]),
-            (morph_erode, outputnode,               [('output_image', 'erode_csf')]),            
+            (morph_erode, outputnode,               [('output_image', 'erode_csf')]),
             ])
     else:
         workflow.connect([
@@ -287,7 +286,7 @@ def _tissue_wf(tissue, padding=10):
             (reindex_tissue, depad,                 [('output_product_image', 'op1')]),
             (depad, outputnode,                     [('output_image', 'out_tissue')]),
         ])
-    
+
     return workflow
 
 
@@ -306,7 +305,7 @@ def _tissue_wf(tissue, padding=10):
 # bts_kmeans = init_atropos_wf()
 # atropos_test.connect([
 #         (inputnode, bts_kmeans,         [('modality', "inputnode.modality")]),
-#         (inputnode, bts_kmeans,         [("out_denoised", "inputnode.in_corrected")]), 
-#         (inputnode, bts_kmeans,         [("in_mask", "inputnode.in_mask")]), 
+#         (inputnode, bts_kmeans,         [("out_denoised", "inputnode.in_corrected")]),
+#         (inputnode, bts_kmeans,         [("in_mask", "inputnode.in_mask")]),
 # ])
 # atropos_test.run()
