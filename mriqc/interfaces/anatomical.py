@@ -516,3 +516,62 @@ def fuzzy_jaccard(in_tpms, in_mni_tpms):
         den = np.max([tpm, mni_tpm], axis=0).sum()
         overlaps.append(float(num / den))
     return overlaps
+
+def manual_hat_crop(in_file, head_mask, out_file = None):
+    """
+    Removed function
+    """
+    from mriqc.workflows import generate_filename
+
+    imnii = nb.load(in_file)
+    mask = np.asanyarray(nb.load(head_mask).dataobj)
+
+    hdr = imnii.header.copy()
+    hdr.set_data_dtype(np.uint8)
+
+    mid_mask = mask.shape[0]//2
+
+    first_list = []
+    first_0_idx_l = []
+
+    for imslice in range(mid_mask-10, mid_mask+10):    # Find the rows to fill from the bottom in each slice
+        twoD = mask[imslice, :, :]
+        first_1_indices = np.argmax(twoD, axis=0).tolist()
+        first_1 = [item for item in first_1_indices if item != 0]
+
+        if len(set(first_1)) == 0:
+            continue
+
+        twoD = mask[imslice, mid_mask:, :]
+        first_0_indices = np.argmax(twoD==0, axis=0).tolist()
+
+        for i in range(len(first_0_indices) - 1):
+            try:
+                if first_0_indices[i] > first_0_indices[i + 1]:
+                    first_list.append(first_0_indices[i])
+                    first_0_idx_l.append(first_0_indices.index(first_0_indices[i]))
+                    break
+            except:
+                continue
+
+    best_0 = max(first_list)
+    list_idx= first_list.index(best_0)
+    best_idx=first_0_idx_l[list_idx]+10
+
+    struct = nd.iterate_structure(nd.generate_binary_structure(3, 2), 2)
+    mask = nd.binary_dilation(mask, border_value=0, structure=struct,iterations=1).astype(np.uint8)
+
+    mask[:, mask.shape[1]//2:, :best_idx] = 1
+    mask[:, :, :mask.shape[2]//8] = 1
+    mask = ~mask
+
+    condition = mask > np.max(mask) -1
+    # binarize array based on condition
+    binary_array = np.where(condition, 1, 0)
+
+    out_file = out_file or str(generate_filename(in_file, suffix='_hat_msk').absolute())
+    nb.Nifti1Image(binary_array, imnii.affine, hdr).to_filename(out_file)
+    return out_file
+
+
+
