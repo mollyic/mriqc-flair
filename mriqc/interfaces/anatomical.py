@@ -575,3 +575,65 @@ def manual_hat_crop(in_file, head_mask, out_file = None):
 
 
 
+class _HeadReviewInputSpec(BaseInterfaceInputSpec):
+    hmask = File(exists=True, mandatory=True, desc='Gradient magnitude headmask for review')
+    hmask_tmpl = File(exists=True, mandatory=True, desc='MNI template for headmask')
+    mni_floor = traits.Tuple((0.0, 0.0, -40.0),
+                             types=(traits.Float, traits.Float, traits.Float),
+                             usedefault=True,
+                             desc='position of the top of the inion in standard coordinates'
+                             )
+    ind2std_xfm = File(exists=True, mandatory=True, desc='individual to standard affine transform')
+
+
+class _HeadReviewOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output reviewed mask')
+
+class HeadMask_review(SimpleInterface):
+    """Compare the outputted mask size to the MNI hmask 
+        - if the mask greatly exceeds the size of the MNI it's likely predominantly artifact
+        - In this case mask the top half of the image with the MNI mask """
+
+    input_spec = _HeadReviewInputSpec
+    output_spec = _HeadReviewOutputSpec
+
+    def _run_interface(self, runtime):  # pylint: disable=R0914,E1101
+        import nibabel as nib
+        import numpy as np
+        from nibabel.affines import apply_affine
+        from nitransforms.linear import Affine
+
+        from mriqc.workflows import generate_filename
+
+        h_data = nib.load(self.inputs.hmask)
+        hmask_data = h_data.get_fdata()
+        hmask_tmpl_data = nib.load(self.inputs.hmask_tmpl).get_fdata()
+        hdr = h_data.header.copy()
+        hdr.set_data_dtype(np.uint8)
+
+        #find bottom of mni
+        xfm = Affine.from_filename(self.inputs.ind2std_xfm, fmt="itk")
+        ras2ijk = np.linalg.inv(h_data.affine)
+        mni_floor = apply_affine(ras2ijk, xfm.map(self.inputs.mni_floor))[0]
+
+        #crop files at bottom
+        crop_mask = hmask_data[:, :, int(mni_floor[2]): ]
+        crop_tmpl = hmask_tmpl_data[:, :, int(mni_floor[2]): ] 
+
+        # check voxel size 
+        test = crop_mask[crop_mask !=0].size
+        ref = crop_tmpl[crop_tmpl !=0].size
+        print(f'Percent: {test/ref *100}%')
+        #if gradient magnitude mask is 1.5x larger assume it's predominantly artifact
+        if (test/ref *100) > 150: 
+            hmask_unenhanced = nib.load(self.inputs.hmask.replace('_hmask','')).get_fdata()
+            out_file = str(generate_filename(self.inputs.hmask.replace('_hmask_','_under'), suffix="MNIcrop").absolute())
+            hmask_unenhanced[:, :, int(mni_floor[2]):] *= hmask_tmpl_data[:, :, int(mni_floor[2]): ]
+            nib.Nifti1Image(hmask_unenhanced, h_data.affine, hdr).to_filename(out_file)
+        else:
+            out_file = self.inputs.hmask
+
+        self._results["out_file"] = out_file
+
+        return runtime
+
