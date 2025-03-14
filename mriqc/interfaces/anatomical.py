@@ -277,14 +277,19 @@ class _ArtifactMaskInputSpec(BaseInterfaceInputSpec):
         desc='position of the top of the glabella in standard coordinates',
     )
     inion_xyz = traits.Tuple(
-        (0.0, -120.0, -14.0),
+        (0.0, -120.0, -80.0), #(0.0, -120.0, -14.0) original,
         types=(traits.Float, traits.Float, traits.Float),
         usedefault=True,
         desc='position of the top of the inion in standard coordinates',
     )
     ind2std_xfm = File(exists=True, mandatory=True, desc='individual to standard affine transform')
     zscore = traits.Float(10.0, usedefault=True, desc='z-score to consider artifacts')
-
+    nose_xyz = traits.Tuple(
+        (0.0, 90.0, -70.0),
+        types=(traits.Float, traits.Float, traits.Float),
+        usedefault=True,
+        desc='position of the top of the nose in standard coordinates'
+    )
 
 class _ArtifactMaskOutputSpec(TraitedSpec):
     out_hat_msk = File(exists=True, desc='output "hat" mask')
@@ -309,14 +314,14 @@ class ArtifactMask(SimpleInterface):
         imdata = np.nan_to_num(imnii.get_fdata().astype(np.float32))
 
         xfm = Affine.from_filename(self.inputs.ind2std_xfm, fmt='itk')
-
         ras2ijk = np.linalg.inv(imnii.affine)
-        glabella_ijk, inion_ijk = apply_affine(
-            ras2ijk, xfm.map([self.inputs.glabella_xyz, self.inputs.inion_xyz])
+        nose_ijk, inion_ijk = (apply_affine(#maps RAS glabella & inion coords to IJK w ras2ijk transformation matrix
+            ras2ijk, xfm.map([self.inputs.nose_xyz, self.inputs.inion_xyz])) #ras2ijk, xfm.map([self.inputs.glabella_xyz, self.inputs.inion_xyz])
         )
 
         hmdata = np.bool_(nb.load(self.inputs.head_mask).dataobj)
-
+        #removed from current version of mriqc: check orig code for reference
+        #hmdata = nd.binary_dilation(hmdata, border_value=0, structure=nd.generate_binary_structure(3, 2),iterations=1) 
         # Calculate distance to border
         dist = nd.morphology.distance_transform_edt(~hmdata)
 
