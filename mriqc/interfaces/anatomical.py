@@ -637,3 +637,131 @@ class HeadMask_review(SimpleInterface):
 
         return runtime
 
+class _HeadMeasureInputSpec(BaseInterfaceInputSpec):
+    hmask = File(exists=True, mandatory=True, desc='Gradient magnitude headmask for review')
+    glabella_xyz = traits.Tuple((0.0, 90.0, -14.0),
+                                types=(traits.Float, traits.Float, traits.Float),
+                                usedefault=True,
+                                desc='position of the top of the glabella in standard coordinates'
+                                )
+    inion_xyz = traits.Tuple((0.0, -120.0, -80.0),
+                             types=(traits.Float, traits.Float, traits.Float),
+                             usedefault=True,
+                             desc='position of the top of the inion in standard coordinates'
+                             )
+    ind2std_xfm = File(exists=True, mandatory=True, desc='individual to standard affine transform')
+
+
+class _HeadMeasureOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='output reviewed mask')
+
+
+
+class HeadMeasure(SimpleInterface):
+    """Compare the outputted mask size to the MNI hmask 
+        - if the mask greatly exceeds the size of the MNI it's likely predominantly artifact
+        - In this case mask the top half of the image with the MNI mask """
+
+    input_spec = _HeadMeasureInputSpec
+    output_spec = _HeadMeasureOutputSpec
+
+    def _run_interface(self, runtime):  # pylint: disable=R0914,E1101
+        import os
+
+        import matplotlib.pyplot as plt
+        import nibabel as nib
+        import numpy as np
+        from nibabel.affines import apply_affine
+        from nitransforms.linear import Affine
+
+        h_data = nib.load(self.inputs.hmask)
+        hmask_data = h_data.get_fdata()
+        hdr = h_data.header.copy()
+        hdr.set_data_dtype(np.uint8)
+
+        #find bottom of mni
+        xfm = Affine.from_filename(self.inputs.ind2std_xfm, fmt="itk")
+        ras2ijk = np.linalg.inv(h_data.affine)
+        glabella_ijk, inion_ijk = (apply_affine(
+                                        ras2ijk, 
+                                        xfm.map([self.inputs.glabella_xyz,
+                                                 self.inputs.inion_xyz])))
+
+        print(f'File: {self.inputs.hmask}')
+        print(f'Glabella: {glabella_ijk}')
+        print(f'Glabella 1: {[glabella_ijk[1]]}')
+        print(f'Glabella 2: {[glabella_ijk[2]]}')
+
+
+        print(f'Inion: {inion_ijk}')
+        print(f'Inion 1: {[inion_ijk[1]]}')
+        print(f'Glabella 2: {[inion_ijk[2]]}\n')
+
+
+        slice_idx = hmask_data.shape[0] //2
+
+        plt.imshow(hmask_data[slice_idx, :, :], cmap='gray', origin='upper')
+        plt.plot()
+        # Overlay points for Glabella and Inion
+        #fig.scatter([glabella_ijk[1]], [glabella_ijk[2]], c='red', marker='o', label='Glabella')
+        #fig.scatter([inion_ijk[1]], [inion_ijk[2]], c='blue', marker='o', label='Inion')
+
+        plt.savefig(f"SLICE_{os.path.basename(self.inputs.hmask).replace('.nii.gz', '')}")
+
+        plt.show(block=True)
+        #self._results["out_file"] = out_file
+        plt.waitforbuttonpress()
+        return runtime
+
+
+def _measure_head(in_file, ind2std_xfm):  # pylint: disable=R0914,E1101
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import nibabel as nib
+    import numpy as np
+    from nibabel.affines import apply_affine
+    from nitransforms.linear import Affine
+    matplotlib.use('TkAgg')
+    import os
+    import re
+    #INION_XYZ = (0.0, -120.0, -80.0)
+
+    #GLAB_XYZ = (0.0, 90.0, -14.0)
+    INION_XYZ = (0.0, -113.0, -80.0)
+    GLAB_XYZ = (0.0, 90.0, -10.0)
+
+    img = nib.load(in_file)
+    img_data = img.get_fdata()
+
+    xfm = Affine.from_filename(ind2std_xfm, fmt="itk")
+    ras2ijk = np.linalg.inv(img.affine)
+    glabella_ijk, inion_ijk = (apply_affine(
+                                ras2ijk, 
+                                xfm.map([GLAB_XYZ, 
+                                         INION_XYZ])))
+
+
+    vox_size = np.sqrt(np.sum(img.affine[:3, :3]**2, axis=0))[:3]
+    y =inion_ijk[2] - glabella_ijk[2]
+    x =inion_ijk[1] - glabella_ijk[1]
+
+    headsize = (np.sqrt(x**2 + y**2))/vox_size[1]
+
+    slice_idx = img_data.shape[0] //2
+    slice = img_data[slice_idx, :, :]
+    sub = re.search('sub-[A-Za-z0-9]+',in_file).group().replace('sub-', '')
+    mod = re.search('(FLAIR|T1w|T2w)', in_file).group()
+
+    plt.figure(figsize=(8, 8)) 
+    plt.imshow(slice.T, cmap='gray', origin = 'lower')
+    plt.scatter([glabella_ijk[1]], [glabella_ijk[2]], c='green', marker='o', label='Glabella')
+    plt.scatter([inion_ijk[1]], [inion_ijk[2]], c='purple', marker='o', label='Inion')
+    plt.suptitle(f'Subject: {sub}, Modality: {mod}', fontweight='bold')
+    plt.title(f"""
+              Head-length: {round(headsize, 3)}mm
+              (Voxel size: {round(vox_size[0], 1)}x{round(vox_size[1], 1)}x{round(vox_size[2], 1)})
+              \nFile: {os.path.basename(in_file)}"""
+              )
+    plt.legend()
+    plt.show(block = True)
+
