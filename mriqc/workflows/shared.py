@@ -28,16 +28,19 @@ from nipype.pipeline import engine as pe
 
 def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
     """Create a brain-extraction workflow using SynthStrip."""
+    from nipype.interfaces.fsl import BET
     from nipype.interfaces.ants import N4BiasFieldCorrection
     from niworkflows.interfaces.nibabel import ApplyMask, IntensityClip
 
     from mriqc.interfaces.synthstrip import SynthStrip
-
-    inputnode = pe.Node(niu.IdentityInterface(fields=['in_files']), name='inputnode')
+    from mriqc.config import USR_DICT
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_files', 'bspline']), name='inputnode')
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=['out_corrected', 'out_brain', 'bias_image', 'out_mask']),
+        niu.IdentityInterface(
+            fields=['out_corrected', 'out_brain', 'bias_image', 'out_mask', 'out_skin_mask']),
         name='outputnode',
     )
+
 
     # truncate target intensity for N4 correction
     pre_clip = pe.Node(IntensityClip(p_min=10, p_max=99.9), name='pre_clip')
@@ -59,6 +62,7 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
             num_threads=omp_nthreads,
             n_iterations=[50] * 4,
             copy_header=True,
+            rescale_intensities=True,
         ),
         name='post_n4',
     )
@@ -69,9 +73,33 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         num_threads=omp_nthreads,
     )
 
+    betted_skin = pe.Node(BET(frac =0.2), name='betted_skin', num_threads=omp_nthreads)
+    betted_skin.inputs.args = '-A'
+    betted_skin.inputs.surfaces = True
+
     final_masked = pe.Node(ApplyMask(), name='final_masked')
 
     workflow = pe.Workflow(name=name)
+    message = f"""\
+
+    Function: synthstrip_wf.N4BiasFieldCorrection
+        1. Pre & post N4 modifications: {USR_DICT['inu_mod']}
+        2. Bspline distance: {USR_DICT['bspline']}
+
+    """
+
+    if USR_DICT['inu_mod']:
+        pre_n4.inputs.n_iterations=[50] * 4
+        pre_n4.inputs.convergence_threshold=1e-7
+        pre_n4.inputs.shrink_factor =4
+        post_n4.inputs.convergence_threshold=1e-7
+        post_n4.inputs.shrink_factor = 4
+    if USR_DICT['bspline']:
+        workflow.connect([
+            (inputnode, pre_n4,         [('bspline', 'bspline_fitting_distance')]),
+            (inputnode, post_n4,        [('bspline', 'bspline_fitting_distance')])])
+
+    print(message)
     # fmt: off
     workflow.connect([
         (inputnode, pre_clip, [('in_files', 'in_file')]),
@@ -85,6 +113,8 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         (post_n4, outputnode, [('bias_image', 'bias_image')]),
         (synthstrip, outputnode, [('out_mask', 'out_mask')]),
         (post_n4, outputnode, [('output_image', 'out_corrected')]),
+        (pre_n4, betted_skin, [('output_image', 'in_file')]),
+        (betted_skin, outputnode, [('outskin_mask_file', 'out_skin_mask')]),
     ])
     # fmt: on
     return workflow
