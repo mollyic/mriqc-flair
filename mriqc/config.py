@@ -149,6 +149,21 @@ Submission of IQMs can be disabled using the ``--no-sub`` argument. \
 Please visit https://mriqc.readthedocs.io/en/latest/dsa.html to revise MRIQC's \
 Data Sharing Agreement."""
 
+#import configurable settings for testing
+from configparser import ConfigParser
+INI = ConfigParser()
+INI.read('config.ini')
+
+USR_DICT: dict[str, Any] = {
+    'inu_bspline': INI['settings']['bspline'],
+    'inu_mod': INI['settings']['inu_mod'],
+    'bts_smooth': INI['settings']['bts_smooth'],
+    'bts_priors': INI['settings']['bts_priors'],
+    'bts_iters': INI['settings']['bts_iters'],
+    'bts_convg': INI['settings']['bts_convg'],
+    'bts_model': INI['settings']['bts_model'],
+}
+
 _exec_env: str = os.name
 _docker_ver: str | None = None
 # special variable set in the container
