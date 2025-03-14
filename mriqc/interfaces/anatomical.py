@@ -326,7 +326,7 @@ class ArtifactMask(SimpleInterface):
         dist = nd.morphology.distance_transform_edt(~hmdata)
 
         hmdata[:, :, : int(inion_ijk[2])] = 1
-        hmdata[:, (hmdata.shape[1] // 2) :, : int(glabella_ijk[2])] = 1
+        hmdata[:, (hmdata.shape[1] // 2) :, : int(nose_ijk[2])] = 1 #int(glabella_ijk[2])] = 1
 
         dist[~hmdata] = 0
         dist /= dist.max()
@@ -388,6 +388,7 @@ class ComputeQI2(SimpleInterface):
 class HarmonizeInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc='input data (after bias correction)')
     wm_mask = File(exists=True, mandatory=True, desc='white-matter mask')
+    modality = traits.Str(exists=True, mandatory=True, desc='image modality')
     erodemsk = traits.Bool(True, usedefault=True, desc='erode mask')
     thresh = traits.Float(0.9, usedefault=True, desc='WM probability threshold')
 
@@ -407,7 +408,8 @@ class Harmonize(SimpleInterface):
     def _run_interface(self, runtime):
         in_file = nb.load(self.inputs.in_file)
         wm_mask = nb.load(self.inputs.wm_mask).get_fdata()
-        wm_mask[wm_mask < 0.9] = 0
+        confidence = 0.7 if self.inputs.modality =='FLAIR' else 0.9
+        wm_mask[wm_mask < confidence] = 0
         wm_mask[wm_mask > 0] = 1
         wm_mask = wm_mask.astype(np.uint8)
 
