@@ -3,12 +3,11 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.ants import (ImageMath, MultiplyImages,ThresholdImage)
 from collections import OrderedDict
 
-ATROPOS_MODELS = {
+ATROPOS_MODELS: dict[str, OrderedDict] = {
     'T1w': OrderedDict([('csf', 1), ('gm', 2), ('wm', 3)]),
     'T2w': OrderedDict([('csf', 3), ('gm', 2), ('wm', 1)]),
     'FLAIR': OrderedDict([('csf', 1), ('gm', 2), ('wm', 3)])
     }
-
 
 
 def init_atropos_wf(name="atropos_wf", use_random_seed=True, omp_nthreads=None,mem_gb=3.0, padding = 10):
@@ -52,13 +51,13 @@ def init_atropos_wf(name="atropos_wf", use_random_seed=True, omp_nthreads=None,m
 
     # Pad images with zeros before processing
     pad_segm = Node(
-        ImageMath(operation="PadImage",
+        ImageMath(operation="PadImage", 
                   op2=f"{padding}"),
         name="segm_pad")
 
     # Split segmentation in binary masks
     sel_labels = Node(
-            Function(function=_select_labels,
+            Function(function=_select_labels, 
                          output_names=[ "out_csf", "out_gm","out_wm"]),
             name="segm_binarize")
 
@@ -110,7 +109,7 @@ def _rebuild_segmentation():
 
     Outputs:
         1. Reassembled segmentation
-        2. Segmentation list
+        2. Segmentation list  
     """
     inputnode = Node(niu.IdentityInterface(fields=['csf', 'gm', 'wm']), name = 'inputnode')
     outputnode = Node(niu.IdentityInterface(fields=['sumd_tissues', 'proc_seg_lst']), name = 'outputnode')
@@ -121,25 +120,24 @@ def _rebuild_segmentation():
     add_gm_csf = Node(ImageMath(operation="addtozero", output_image = '%s_addcsf.nii.gz'), name="add_gm_csf")
     add_all = Node(ImageMath(operation="addtozero", output_image = 'segment_processed.nii.gz'), name="add_all")
     merge_tpms = Node(Function(function=_merged, output_names=['proc_seg_lst']), name="merge_tpms")
-
     bin_gmcsf = Node(ThresholdImage(dimension=3, th_low=0.01, th_high=1e7, inside_value=0, outside_value=1), name="bin_gmcsf")
     #binMult_gmcsf = Node(ImageMath(operation='mul', op2=-1), name="binMult_gmcsf")
     #binMultAdd_gmcsf = Node(ImageMath(add='add', op2=1), name="binMultAdd_gmcsf")
 
-    clean_wm = Node(MultiplyImages(dimension=3, output_product_image = f'seg-wm_multiply.nii.gz'), name = 'clean_wm')
+    clean_wm = Node(MultiplyImages(dimension=3, output_product_image = f'seg-wm_multiply.nii.gz'), name = 'clean_wm')     
 
     wf = Workflow(name ='segm_sum')
     wf.connect([
-        (inputnode, add_gm_csf,             [('gm', 'op1'), ('csf', 'op2')]),
+        (inputnode, add_gm_csf,             [('gm', 'op1'), ('csf', 'op2')]), 
         (inputnode, add_all,                [('wm', 'op1')]),
-
+        
         (add_gm_csf, bin_gmcsf,             [('output_image', 'input_image')]),
-        # (bin_gmcsf, binMult_gmcsf,          [('output_image', 'op1')]),
-        # (binMult_gmcsf, binMultAdd_gmcsf,   [('output_image', 'op1')]),
-        # (binMultAdd_gmcsf, clean_wm,        [('output_image', 'first_input')]),
-
-        (bin_gmcsf, clean_wm,               [('output_image', 'first_input')]),
-        (inputnode, clean_wm,               [('wm', 'second_input')]),
+        # (bin_gmcsf, binMult_gmcsf,          [('output_image', 'op1')]), 
+        # (binMult_gmcsf, binMultAdd_gmcsf,   [('output_image', 'op1')]), 
+        # (binMultAdd_gmcsf, clean_wm,        [('output_image', 'first_input')]), 
+        
+        (bin_gmcsf, clean_wm,               [('output_image', 'first_input')]), 
+        (inputnode, clean_wm,               [('wm', 'second_input')]), 
 
         (add_gm_csf, add_all,               [('output_image', 'op2')]),
         (add_all, outputnode,               [('output_image', 'sumd_tissues')]),
@@ -148,7 +146,7 @@ def _rebuild_segmentation():
 
         (merge_tpms, outputnode,            [("proc_seg_lst", "proc_seg_lst")]),
         ])
-
+    
     return wf
 
 
@@ -172,7 +170,7 @@ def _mask_pvms(pvm, modality, seg_lst):
     segmask_bin = (segmsk_data > 0).astype(np.int_) #boolean operation
 
     pvm_maskd = pvm_data * segmask_bin
-    out_pvm_msk = fname_presuffix(pvm, suffix=f"_class-{idx}_tissue-{tissue.upper()}_mskseg", newpath=getcwd())
+    out_pvm_msk = fname_presuffix(pvm, suffix=f"_class-{idx}_tissue-{tissue.upper()}_mskseg", newpath=getcwd())             
     nb.Nifti1Image(pvm_maskd.astype(np.float32), pvm_nii.affine, pvm_nii.header).to_filename(out_pvm_msk)
     eroded = out_pvm_msk
 

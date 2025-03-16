@@ -74,6 +74,7 @@ from mriqc.messages import BUILDING_WORKFLOW
 from mriqc.workflows.anatomical.output import init_anat_report_wf
 from mriqc.workflows.utils import get_fwhmx
 
+from mriqc.config import INI
 
 def anat_qc_workflow(name='anatMRIQC'):
     """
