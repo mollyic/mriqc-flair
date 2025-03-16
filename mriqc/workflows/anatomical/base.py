@@ -66,6 +66,7 @@ from mriqc.interfaces import (
     ConformImage,
     IQMFileSink,
     RotationMask,
+    HeadMask_review,
     StructuralQC,
 )
 from mriqc.interfaces.reports import AddProvenance
