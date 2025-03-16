@@ -90,6 +90,7 @@ def anat_qc_workflow(name='anatMRIQC'):
             wf = anat_qc_workflow()
 
     """
+    from mriqc.workflows import init_atropos_wf, 
     from mriqc.workflows.shared import synthstrip_wf
 
     # Enable if necessary
