@@ -169,6 +169,16 @@ def anat_qc_workflow(name='anatMRIQC'):
     # Reports
     anat_report_wf = init_anat_report_wf()
 
+    # Get information about the input file
+    get_info = pe.Node(
+        niu.Function(
+            function=_get_info,
+            input_names=['in_file'],
+            output_names=[
+                'modality','trans_mod','bspline','tpl_target_path','tpl_mask_path','wm_tpl','tissue_tpls',],
+        ),
+        name='get_info',
+    )
     # Connect all nodes
     # fmt: off
     workflow.connect([
@@ -250,6 +260,88 @@ def anat_qc_workflow(name='anatMRIQC'):
         # fmt: on
 
     return workflow
+
+
+def _get_info(in_file):
+    from mriqc import config
+    from templateflow.api import get as get_template
+    from niworkflows.utils.misc import get_template_specs
+    from mriqc.workflows import _get_mod
+
+    """
+    Retrieve information for future processing, returns:
+        * modality: file modality
+        * bspline: bspline distance for INU correction
+        * trans_mod: Adjusted modality as patial normalisation function does not accept 'FLAIR' convert to T2w
+        * tpl_target_path: path to MNI template
+        * tpl_mask_path: path to MNI template brain mask 
+        * wm_tpl: path to MNI template WM probseg 
+        * tissue_tpls: path 
+
+    """
+    from mriqc.config import INI
+
+    # 1. Get modality
+    modality = _get_mod(in_file)
+
+    # TESTING
+    bspline = int(INI['settings']['flair_bspline'])
+    tpl_id, trans_mod = (
+        ('GG853', 'T2w') if modality == 'FLAIR' else (config.workflow.template_id, modality)
+    )
+
+    # 2. Get template ID, bspline, trans_mod
+    # flair_bspline =int(INI['settings']['flair_bspline'])
+    # tpl_id, bspline, trans_mod =('GG853', flair_bspline, 'T2w') if modality == 'FLAIR' else (config.workflow.template_id, 200, modality)
+    template_spec = {}
+    template_spec['suffix'] = template_spec.get('suffix', modality)
+
+    # 3. Get MNI template
+    tpl_target_path, common_spec = get_template_specs(
+        tpl_id,
+        template_spec=template_spec,
+        fallback=True,
+    )
+
+    # 4. Get probabilistic brain mask or binary mask if unavailable
+    tpl_mask_path = get_template(
+        tpl_id, label='brain', suffix='probseg', **common_spec
+    ) or get_template(tpl_id, desc='brain', suffix='mask', **common_spec)
+
+    # Check species and configure tpls accordingly
+    tpl_target_path, tpl_mask_path = (
+        (tpl_target_path, tpl_mask_path)
+        if config.workflow.species.lower() == 'human'
+        else (
+            str(get_template(tpl_id, suffix='T2w')),
+            str(get_template(tpl_id, desc='brain', suffix='mask')[0]),
+        )
+    )
+    # 5. Get tissue templates
+    tissue_tpls = [
+        str(p)
+        for p in get_template(
+            tpl_id,
+            suffix='probseg',
+            resolution=(1 if config.workflow.species.lower() == 'human' else None),
+            label=['CSF', 'GM', 'WM'],
+        )
+    ]
+
+    # 6. WM template
+    wm_tpl = next(tissue_tpl for tissue_tpl in tissue_tpls if 'label-WM' in tissue_tpl)
+
+    print(f'\n\nModality: {modality}')
+    print(f'    * in_file:                  {in_file}')
+    print(f'    * tpl_id:                   {tpl_id}')
+    print(f'    * trans_mod:                {trans_mod}')
+    print(f'    * bspline:                  {bspline}')
+    print(f'    * tpl_target_path:          {tpl_target_path}')
+    print(f'    * common_spec:              {common_spec}')
+    print(f'    * tpl_mask_path:            {tpl_mask_path}')
+    print(f'    * tissue_tpls:              {tissue_tpls}')
+    print(f'    * wm_tpl:                   {wm_tpl}\n\n')
+    return modality, trans_mod, bspline, tpl_target_path, tpl_mask_path, wm_tpl, tissue_tpls
 
 
 def spatial_normalization(name='SpatialNormalization'):
