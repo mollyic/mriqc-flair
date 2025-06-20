@@ -157,11 +157,11 @@ INI.read('config.ini')
 USR_DICT: dict[str, Any] = {
     'inu_bspline': INI['settings']['bspline'],
     'inu_mod': INI['settings']['inu_mod'],
-    'bts_smooth': INI['settings']['bts_smooth'],
-    'bts_priors': INI['settings']['bts_priors'],
-    'bts_iters': INI['settings']['bts_iters'],
-    'bts_convg': INI['settings']['bts_convg'],
-    'bts_model': INI['settings']['bts_model'],
+    'bts_smooth': INI['atropos']['mrf_smooth'],
+    'bts_priors': INI['atropos']['prior_weight'],
+    'bts_iters': INI['atropos']['n_iterations'],
+    'bts_convg': INI['atropos']['convergence_threshold'],
+    'bts_model': INI['atropos']['likelihood_model'],
 }
 
 _exec_env: str = os.name

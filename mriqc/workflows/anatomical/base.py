@@ -90,7 +90,7 @@ def anat_qc_workflow(name='anatMRIQC'):
             wf = anat_qc_workflow()
 
     """
-    from mriqc.workflows import init_atropos_wf, 
+    from mriqc.workflows import init_atropos_wf 
     from mriqc.workflows.shared import synthstrip_wf
 
     # Enable if necessary
@@ -116,7 +116,7 @@ def anat_qc_workflow(name='anatMRIQC'):
         chain(
             config.workflow.inputs_entities.get('t1w', []),
             config.workflow.inputs_entities.get('t2w', []),
-            config.workflow.inputs_metadata.get('flair', []),
+            config.workflow.inputs_entities.get('flair', []),
         )
     )
     message = BUILDING_WORKFLOW.format(
@@ -346,10 +346,9 @@ def _get_info(in_file):
 
 def spatial_normalization(name='SpatialNormalization'):
     """Create a simplified workflow to perform fast spatial normalization."""
-    from niworkflows.interfaces.reportlets.registration import (
-        SpatialNormalizationRPT as RobustMNINormalization,
+    from mriqc.workflows.anatomical.modules.wrap_normalisation import (
+        WrapSpatialNormalizationRPT as RobustMNINormalization,
     )
-
     # Have the template id handy
     tpl_id = config.workflow.template_id
 
@@ -360,7 +359,7 @@ def spatial_normalization(name='SpatialNormalization'):
         name='inputnode',
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=['out_tpms', 'out_report', 'ind2std_xfm']),
+        niu.IdentityInterface(fields=['out_tpms', 'out_report', 'ind2std_xfm', 'hmask_mni2nat']),
         name='outputnode',
     )
 
@@ -382,6 +381,11 @@ def spatial_normalization(name='SpatialNormalization'):
         norm.inputs.reference_mask = str(
             get_template(tpl_id, resolution=2, desc='brain', suffix='mask')
         )
+        def _get_template(modality):
+            if modality == 'FLAIR':
+                reference_image, reference_mask = 
+
+        workflow.connect[(modality)]
     else:
         norm.inputs.reference_image = str(get_template(tpl_id, suffix='T2w'))
         norm.inputs.reference_mask = str(get_template(tpl_id, desc='brain', suffix='mask')[0])
@@ -397,21 +401,30 @@ def spatial_normalization(name='SpatialNormalization'):
         iterfield=['input_image'],
         name='tpms_std2t1w',
     )
-    tpms_std2t1w.inputs.input_image = [
-        str(p)
-        for p in get_template(
-            config.workflow.template_id,
-            suffix='probseg',
-            resolution=(1 if config.workflow.species.lower() == 'human' else None),
-            label=['CSF', 'GM', 'WM'],
-        )
-    ]
+
+    tpms_std2t1w.inputs.invert_transform_flags = [True]
+
+    # Project standard headmask to native space
+    hmask_std2t1w = pe.Node(
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            interpolation='Gaussian',  # Choose the appropriate interpolation method
+            float=config.execution.ants_float,
+        ),
+        name='syn_hmask_mni2nat',
+    )
+    hmask_std2t1w.inputs.input_image = config.workflow.hmask_MNI
+    hmask_std2t1w.inputs.invert_transform_flags = [True]
+
 
     # fmt: off
     workflow.connect([
-        (inputnode, norm, [('moving_image', 'moving_image'),
-                           ('moving_mask', 'moving_mask'),
-                           ('modality', 'reference')]),
+        (inputnode, norm, [('tpl_target_path', 'fixed_image'), #check these inputs
+                           ('in_files', 'moving_image')]),
+        # (inputnode, norm, [('moving_image', 'moving_image'),
+        #                    ('moving_mask', 'moving_mask'),
+        #                    ('modality', 'reference')]),
         (inputnode, tpms_std2t1w, [('moving_image', 'reference_image')]),
         (norm, tpms_std2t1w, [
             ('inverse_composite_transform', 'transforms'),

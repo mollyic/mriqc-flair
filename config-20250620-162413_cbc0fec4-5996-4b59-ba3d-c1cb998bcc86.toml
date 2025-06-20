@@ -1,0 +1,81 @@
+[environment]
+cache_path = "PosixPath('/home/mollyi/.cache/mriqc')"
+cpu_count = 14
+exec_env = "posix"
+overcommit_policy = "heuristic"
+overcommit_limit = "50%"
+nipype_version = "1.9.2"
+templateflow_version = "24.2.2"
+total_memory = 15.079475402832031
+version = "25.1.0.dev41+gf9165590"
+
+[execution]
+ants_float = false
+bids_dir = "/home/mollyi/Projects/EMRIqc/RADIOL_niis"
+bids_dir_datalad = false
+bids_database_dir = "/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc/.bids_db-20250620-162413_cbc0fec4-5996-4b59-ba3d-c1cb998bcc86"
+bids_database_wipe = false
+cwd = "/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc"
+datalad_get = true
+debug = false
+dry_run = false
+dsname = "<unset>"
+float32 = true
+layout = "BIDS Layout: /home/mollyi/Projects/EMRIqc/RADIOL_niis"
+log_dir = "/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc/logs"
+log_level = 25
+modalities = [ "FLAIR",]
+no_sub = false
+notrack = false
+output_dir = "/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc"
+participant_label = [ "100080",]
+pdb = false
+reports_only = false
+resource_monitor = false
+run_uuid = "20250620-162413_cbc0fec4-5996-4b59-ba3d-c1cb998bcc86"
+templateflow_home = "/home/mollyi/.cache/templateflow"
+upload_strict = false
+verbose_reports = false
+webapi_url = "https://mriqc.nimh.nih.gov:443/api/v1"
+work_dir = "/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc"
+write_graph = false
+
+[workflow]
+analysis_level = [ "participant",]
+deoblique = false
+despike = false
+fd_thres = 0.2
+fd_radius = 50
+fft_spikes_detector = false
+inputs_path = "PosixPath('/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc/inputs-20250620-162413_cbc0fec4-5996-4b59-ba3d-c1cb998bcc86.pkl')"
+min_len_dwi = 7
+min_len_bold = 5
+species = "human"
+template_id = "MNI152NLin2009cAsym"
+mni_resolution = 2
+hmask_MNI = "/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc/mriqc/templates/headmask_MNI.nii.gz"
+hmask_manual = "/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc/mriqc/templates/headmask_native.nii.gz"
+
+[nipype]
+crashfile_format = "txt"
+get_linked_libs = false
+local_hash_check = true
+nprocs = 14
+omp_nthreads = 14
+plugin = "MultiProc"
+remove_node_directories = false
+resource_monitor = false
+stop_on_first_crash = true
+
+[settings]
+file_path = "/home/mollyi/Projects/EMRIqc/code/emriqc_mirror/mriqc/config-20250620-162413_cbc0fec4-5996-4b59-ba3d-c1cb998bcc86.toml"
+start_time = 1750400653.947452
+
+[execution.bids_filters]
+
+[workflow.biggest_file_gb]
+flair = 0.006774044595658779
+
+[nipype.plugin_args]
+maxtasksperchild = 1
+raise_insufficient = false
