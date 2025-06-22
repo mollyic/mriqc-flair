@@ -144,10 +144,9 @@ def ants_brain_extraction_wf(
             (inputnode, syn_norm, [('in_files', 'moving_image')]),
             # convert tissues from MNI to NORm
             (syn_norm, syn_tpms_mni2nat, [('out_matrix', 'transforms')]),
-            (
-                inputnode,
-                syn_tpms_mni2nat,
-                [('in_files', 'reference_image'), ('tissue_tpls', 'input_image')],
+            (inputnode,syn_tpms_mni2nat, [
+                ('in_files', 'reference_image'), 
+                ('tissue_tpls', 'input_image')],
             ),
             # SEGMENTATION
             #(inputnode, syn_bts, [('in_files', 'inputnode.in_file')]),

@@ -71,3 +71,8 @@ target/
 
 # Run files
 work/
+
+#additions
+.bids_db-*
+.pkl
+config-.*toml

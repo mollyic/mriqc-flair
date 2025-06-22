@@ -62,6 +62,11 @@ def _download_file(url: str, output_path: str) -> None:
     return output_path
 
 def _construct_mask(tpl_id:str, template_dir: Path, resolution: int = 1) -> None:
+
+    """
+    Note: excluding as too messy, just defaulting to standard MNI brain mask 
+    Construct a brain mask from tissue probability maps for a given template.
+    """
     import nibabel as nb
     import numpy as np
     import re
@@ -157,7 +162,9 @@ def _get_custom_templates(modality: str,
         # Create a brain mask GG853 from tissue probability maps
         bmask_files = [f for f in tf_tpl_dir.rglob("*")  if f'res-0{template_res}_desc-brain_mask' in f.name]
         if len(bmask_files) == 0:
+            #bmask_file = _construct_mask(tpl_id= template_id, template_dir=tf_tpl_dir)
             bmask_file = _construct_mask(tpl_id= template_id, template_dir=tf_tpl_dir)
+
         else:
             bmask_file = bmask_files[0]
         

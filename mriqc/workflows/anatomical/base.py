@@ -175,13 +175,20 @@ def anat_qc_workflow(name='anatMRIQC'):
             function=_get_info,
             input_names=['in_file'],
             output_names=[
-                'modality','trans_mod','bspline','tpl_target_path','tpl_mask_path','wm_tpl','tissue_tpls',],
+                'modality',
+                'trans_mod',
+                'bspline',
+                'tpl_target_path',
+                'tpl_mask',
+                'wm_tpl',
+                'tissue_tpls'],
         ),
         name='get_info',
     )
     # Connect all nodes
     # fmt: off
     workflow.connect([
+        (inputnode, get_info, [('in_file', 'in_file'),]),
         (inputnode, anat_report_wf, [
             ('in_file', 'inputnode.name_source'),
         ]),
@@ -189,7 +196,8 @@ def anat_qc_workflow(name='anatMRIQC'):
         (inputnode, iqmswf, [('in_file', 'inputnode.in_file'),
                              ('metadata', 'inputnode.metadata'),
                              ('entities', 'inputnode.entities')]),
-        (inputnode, norm, [(('in_file', _get_mod), 'inputnode.modality')]),
+        (get_info, norm, [('modality', 'inputnode.modality', 
+                           'tpl_mask', 'inputnode.reference_mask')]),
         (to_ras, skull_stripping, [('out_file', 'inputnode.in_files')]),
         (skull_stripping, hmsk, [
             ('outputnode.out_corrected', 'inputnode.in_file'),
@@ -274,7 +282,7 @@ def _get_info(in_file):
         * bspline: bspline distance for INU correction
         * trans_mod: Adjusted modality as patial normalisation function does not accept 'FLAIR' convert to T2w
         * tpl_target_path: path to MNI template
-        * tpl_mask_path: path to MNI template brain mask 
+        * tpl_mask: path to MNI template brain mask 
         * wm_tpl: path to MNI template WM probseg 
         * tissue_tpls: path 
 
@@ -304,13 +312,17 @@ def _get_info(in_file):
     )
 
     # 4. Get probabilistic brain mask or binary mask if unavailable
-    tpl_mask_path = get_template(
-        tpl_id, label='brain', suffix='probseg', **common_spec
-    ) or get_template(tpl_id, desc='brain', suffix='mask', **common_spec)
+    # REMOVED: probabilistic brain mask as preferred, binary mask as fallback
+    # tpl_mask = get_template(
+    #     tpl_id, label='brain', suffix='probseg', **common_spec
+    # ) or get_template(tpl_id, desc='brain', suffix='mask', **common_spec)
+    tpl_mask = str(
+        get_template(tpl_id, resolution=2, desc='brain', suffix='mask')
+    )
 
     # Check species and configure tpls accordingly
-    tpl_target_path, tpl_mask_path = (
-        (tpl_target_path, tpl_mask_path)
+    tpl_target_path, tpl_mask = (
+        (tpl_target_path, tpl_mask)
         if config.workflow.species.lower() == 'human'
         else (
             str(get_template(tpl_id, suffix='T2w')),
@@ -338,10 +350,10 @@ def _get_info(in_file):
     print(f'    * bspline:                  {bspline}')
     print(f'    * tpl_target_path:          {tpl_target_path}')
     print(f'    * common_spec:              {common_spec}')
-    print(f'    * tpl_mask_path:            {tpl_mask_path}')
+    print(f'    * tpl_mask:            {tpl_mask}')
     print(f'    * tissue_tpls:              {tissue_tpls}')
     print(f'    * wm_tpl:                   {wm_tpl}\n\n')
-    return modality, trans_mod, bspline, tpl_target_path, tpl_mask_path, wm_tpl, tissue_tpls
+    return modality, trans_mod, bspline, tpl_target_path, tpl_mask, wm_tpl, tissue_tpls
 
 
 def spatial_normalization(name='SpatialNormalization'):
@@ -349,13 +361,14 @@ def spatial_normalization(name='SpatialNormalization'):
     from mriqc.workflows.anatomical.modules.wrap_normalisation import (
         WrapSpatialNormalizationRPT as RobustMNINormalization,
     )
+
     # Have the template id handy
     tpl_id = config.workflow.template_id
 
     # Define workflow interface
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=['moving_image', 'moving_mask', 'modality']),
+        niu.IdentityInterface(fields=['moving_image', 'moving_mask', 'modality', 'reference_mask']),
         name='inputnode',
     )
     outputnode = pe.Node(
@@ -378,14 +391,10 @@ def spatial_normalization(name='SpatialNormalization'):
         mem_gb=3,
     )
     if config.workflow.species.lower() == 'human':
-        norm.inputs.reference_mask = str(
-            get_template(tpl_id, resolution=2, desc='brain', suffix='mask')
-        )
-        def _get_template(modality):
-            if modality == 'FLAIR':
-                reference_image, reference_mask = 
-
-        workflow.connect[(modality)]
+        # norm.inputs.reference_mask = str(
+        #     get_template(tpl_id, resolution=2, desc='brain', suffix='mask')
+        # )
+        norm.inputs.reference_mask = inputnode.inputs.reference_mask   
     else:
         norm.inputs.reference_image = str(get_template(tpl_id, suffix='T2w'))
         norm.inputs.reference_mask = str(get_template(tpl_id, desc='brain', suffix='mask')[0])
