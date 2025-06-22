@@ -22,5 +22,4 @@ Modifications have been made to support Fluid-Attenuated Inversion Recovery (FLA
 including updates to conversion, quality control workflows, and spatial normalization interfaces.
 
 These changes were made by Molly Ireland at The Florey Institute of Neuroscience and Mental Health, 2025.
-See the GitHub repository (https://github.com/yourusername/mriqc-flair) for details.
-
+See the GitHub repository (https://github.com/mollyic/mriqc-flair) for details.

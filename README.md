@@ -12,7 +12,10 @@ As a common scan in clinical and research settings, this project was undertaken 
 ## OHBM Presentation
 
 This work was presented at the Organization for Human Brain Mapping (OHBM) Annual Meeting.  
-The poster can be found in the [flair_docs/poster_ohbm2025.pdf](docs/poster_ohbm2025.pdf) directory.
+The poster can be found in the [docs/mriqc-flair/poster_ohbm2025.pdf](docs/mriqc-flair/OHBM_eposter_mriqcflair.pdf) directory.
+
+
+[![Poster preview](docs/mriqc-flair/OHBM_eposter_mriqcflair.png)]
 
 ## How to Use
 
