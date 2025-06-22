@@ -9,13 +9,12 @@ As a common scan in clinical and research settings, this project was undertaken 
 - **FLAIR-specific image handling** added to core workflows
 - Inclusion of FLAIR images in outputted MRQIC **quality control (QC) reports**
 
-## OHBM Presentation
+## OHBM Poster 2025
 
 This work was presented at the Organization for Human Brain Mapping (OHBM) Annual Meeting.  
-The poster can be found in the [docs/mriqc-flair/poster_ohbm2025.pdf](docs/mriqc-flair/OHBM_eposter_mriqcflair.pdf) directory.
+A pdf of this poster can be found in the [here](docs/mriqc-flair/OHBM_eposter_mriqcflair.pdf).
 
-
-[![Poster preview](docs/mriqc-flair/OHBM_eposter_mriqcflair.png)]
+![Poster preview](docs/mriqc-flair/OHBM_eposter_mriqcflair.png)
 
 ## How to Use
 
