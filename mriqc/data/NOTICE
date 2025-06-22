@@ -15,3 +15,12 @@ by C. Craddock, S. Giavasis, D. Clark, Z. Shezhad, and J. Pellman.
 This software is also distributed as a Docker container image.
 The bootstrapping file for the image ("Dockerfile") is licensed
 under the MIT License.
+
+---
+
+Modifications have been made to support Fluid-Attenuated Inversion Recovery (FLAIR) sequences,
+including updates to conversion, quality control workflows, and spatial normalization interfaces.
+
+These changes were made by Molly Ireland at The Florey Institute of Neuroscience and Mental Health, 2025.
+See the GitHub repository (https://github.com/yourusername/mriqc-flair) for details.
+
