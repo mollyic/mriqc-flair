@@ -320,7 +320,7 @@ def cjv(mu_wm, mu_gm, sigma_wm, sigma_gm):
     return float((sigma_wm + sigma_gm) / abs(mu_wm - mu_gm))
 
 
-def fber(img, headmask, rotmask=None, decimals=4):
+def fber(img, headmask, airmask, rotmask=None, decimals=4):
     r"""
     Calculate the :abbr:`FBER (Foreground-Background Energy Ratio)` [Shehzad2015]_,
     defined as the mean energy of image values within the head relative
@@ -342,11 +342,10 @@ def fber(img, headmask, rotmask=None, decimals=4):
 
     fg_mu = np.median(np.abs(img[headmask > 0]) ** 2)
 
-    airmask = np.ones_like(headmask, dtype=np.uint8)
-    airmask[headmask > 0] = 0
+    airmask = img[airmask == 1]
     if rotmask is not None:
         airmask[rotmask > 0] = 0
-    bg_mu = np.median(np.abs(img[airmask == 1]) ** 2)
+    bg_mu = np.median(np.abs(airmask[airmask != 0]) ** 2)
     if bg_mu < 1.0e-3:
         return -1.0
     return round(float(fg_mu / bg_mu), decimals)

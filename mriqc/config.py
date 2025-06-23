@@ -2,7 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 #
 # Copyright 2021 The NiPreps Developers <nipreps@gmail.com>
-#
+# Modified by Molly Ireland on 2025-03-13
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -139,7 +139,7 @@ if not any(
     os.environ['PYTHONWARNINGS'] = 'ignore'
 
 
-SUPPORTED_SUFFIXES: tuple[str, ...] = ('T1w', 'T2w', 'bold', 'dwi')
+SUPPORTED_SUFFIXES: tuple[str, ...] = ('T1w', 'T2w', 'FLAIR', 'bold', 'dwi')
 
 DEFAULT_MEMORY_MIN_GB: float = 0.01
 DSA_MESSAGE: str = """\
@@ -148,6 +148,21 @@ repository. \
 Submission of IQMs can be disabled using the ``--no-sub`` argument. \
 Please visit https://mriqc.readthedocs.io/en/latest/dsa.html to revise MRIQC's \
 Data Sharing Agreement."""
+
+#import configurable settings for testing
+from configparser import ConfigParser
+INI = ConfigParser()
+INI.read('config.ini')
+
+USR_DICT: dict[str, Any] = {
+    'inu_bspline': INI['settings']['bspline'],
+    'inu_mod': INI['settings']['inu_mod'],
+    'bts_smooth': INI['atropos']['mrf_smooth'],
+    'bts_priors': INI['atropos']['prior_weight'],
+    'bts_iters': INI['atropos']['n_iterations'],
+    'bts_convg': INI['atropos']['convergence_threshold'],
+    'bts_model': INI['atropos']['likelihood_model'],
+}
 
 _exec_env: str = os.name
 _docker_ver: str | None = None
@@ -513,7 +528,7 @@ class execution(_Config):
                     r'(beh|fmap|pet|perf|meg|eeg|ieeg|micr|nirs)'
                 ),
                 # Ignore all files, except for the supported modalities
-                re.compile(r'^.+(?<!(_T1w|_T2w|bold|_dwi))\.(json|nii|nii\.gz)$'),
+                re.compile(r'^.+(?<!(_T1w|_T2w|LAIR|bold|_dwi))\.(json|nii|nii\.gz)$'),
             ]
 
             if cls.participant_label:
@@ -608,6 +623,12 @@ class workflow(_Config):
     """Subject species to choose most appropriate template"""
     template_id: str = 'MNI152NLin2009cAsym'
     """TemplateFlow ID of template used for the anatomical processing."""
+    mni_resolution = 2
+    """Manual headmask resolution for transformation between MNI and native spaces."""
+    hmask_MNI =f'{os.getcwd()}/mriqc/templates/tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz'
+    """Manual headmask nifti file"""
+    hmask_manual =f'{os.getcwd()}/mriqc/templates/headmask_native.nii.gz'
+    """Manual headmask in native space"""
 
     _hidden: tuple[str, ...] = ('inputs', 'inputs_entities', 'inputs_metadata')
 

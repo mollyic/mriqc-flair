@@ -126,7 +126,8 @@ def main(argv=None):
         # function executed constrained in a process may change the config (and thus the global
         # state of MRIQC).
         config.load(config_file)
-
+        print('Yep!')
+        print(mriqc_wf)
         exitcode = exitcode or (mriqc_wf is None) * os.EX_SOFTWARE
         if exitcode != 0:
             sys.exit(exitcode)
