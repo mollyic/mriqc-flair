@@ -2,6 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 #
 # Copyright 2023 The NiPreps Developers <nipreps@gmail.com>
+# Modified by Molly Ireland on 2025-03-13
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
