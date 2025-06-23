@@ -34,12 +34,10 @@
 
 """
 
-from mriqc.workflows.anatomical.ants_atropos import init_atropos_wf
 from mriqc.workflows.anatomical.base import anat_qc_workflow
 from mriqc.workflows.functional.base import fmri_qc_workflow
 
 __all__ = [
-    'init_atropos_wf',
     'anat_qc_workflow',
     'fmri_qc_workflow',
 ]

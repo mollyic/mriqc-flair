@@ -152,6 +152,6 @@ def spatial_normalization(name='SpatialNormalization'):
     )
 
 
-    return wf
+    return workflow
 
 

@@ -34,6 +34,9 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
 
     from mriqc.interfaces.synthstrip import SynthStrip
     from mriqc.config import USR_DICT
+
+    print(USR_DICT)
+
     inputnode = pe.Node(niu.IdentityInterface(fields=['in_files', 'bspline']), name='inputnode')
     outputnode = pe.Node(
         niu.IdentityInterface(
@@ -84,7 +87,7 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
 
     Function: synthstrip_wf.N4BiasFieldCorrection
         1. Pre & post N4 modifications: {USR_DICT['inu_mod']}
-        2. Bspline distance: {USR_DICT['bspline']}
+        2. Bspline distance: {USR_DICT['inu_bspline']}
 
     """
 
@@ -94,7 +97,7 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         pre_n4.inputs.shrink_factor =4
         post_n4.inputs.convergence_threshold=1e-7
         post_n4.inputs.shrink_factor = 4
-    if USR_DICT['bspline']:
+    if USR_DICT['inu_bspline']:
         workflow.connect([
             (inputnode, pre_n4,         [('bspline', 'bspline_fitting_distance')]),
             (inputnode, post_n4,        [('bspline', 'bspline_fitting_distance')])])
@@ -113,8 +116,8 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         (post_n4, outputnode, [('bias_image', 'bias_image')]),
         (synthstrip, outputnode, [('out_mask', 'out_mask')]),
         (post_n4, outputnode, [('output_image', 'out_corrected')]),
-        (pre_n4, betted_skin, [('output_image', 'in_file')]),
-        (betted_skin, outputnode, [('outskin_mask_file', 'out_skin_mask')]),
+        #(pre_n4, betted_skin, [('output_image', 'in_file')]),
+        #(betted_skin, outputnode, [('outskin_mask_file', 'out_skin_mask')]),
     ])
     # fmt: on
     return workflow

@@ -625,7 +625,7 @@ class workflow(_Config):
     """TemplateFlow ID of template used for the anatomical processing."""
     mni_resolution = 2
     """Manual headmask resolution for transformation between MNI and native spaces."""
-    hmask_MNI =f'{os.getcwd()}/mriqc/templates/headmask_MNI.nii.gz'
+    hmask_MNI =f'{os.getcwd()}/mriqc/templates/tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz'
     """Manual headmask nifti file"""
     hmask_manual =f'{os.getcwd()}/mriqc/templates/headmask_native.nii.gz'
     """Manual headmask in native space"""

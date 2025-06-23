@@ -603,7 +603,7 @@ class HeadMask_review(SimpleInterface):
         from nibabel.affines import apply_affine
         from nitransforms.linear import Affine
 
-        from mriqc.workflows import generate_filename
+        from mriqc.workflows.utils import generate_filename
 
         h_data = nib.load(self.inputs.hmask)
         hmask_data = h_data.get_fdata()

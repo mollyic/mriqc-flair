@@ -55,49 +55,19 @@ class WrapSpatialNormalizationRPT(nrb.RegistrationRC, WrapSpatialNormalization):
 
         return super()._post_run_hook(runtime)
 
-
 def _download_file(url: str, output_path: str) -> None:
     urllib.request.urlretrieve(url, output_path)
-    print(f"\t * Outfile: {output_path}")
+    print(f"\t * Downloaded: {output_path}")
     return output_path
 
-def _construct_mask(tpl_id:str, template_dir: Path, resolution: int = 1) -> None:
-
-    """
-    Note: excluding as too messy, just defaulting to standard MNI brain mask 
-    Construct a brain mask from tissue probability maps for a given template.
-    """
-    import nibabel as nb
-    import numpy as np
-    import re
-    print(f"Generating brain mask for {tpl_id} template from tissue probability maps.")
-
-    template_dir = Path(template_dir)
-
-    list_tissues = [fname for fname in template_dir.rglob("*") if re.match(rf'^tpl-{tpl_id}.*(CSF|GM|WM).*probseg\.nii(\.gz)?$', str(fname.name))]
-    print(list_tissues)
-    t1, t2, t3 = (nb.load(str(file)).get_fdata() for file in list_tissues)
-    sum_tissues = t1+t2+t3
-
-    bmask = (sum_tissues > 0.5).astype(np.uint8)
-
-    in_nii = nb.load(list_tissues[0])
-    out_file =Path(list_tissues[0]).parent / ('tpl-' + tpl_id + '_res-0' + str(resolution) +'_desc-brain_mask.nii.gz')
-    hdr = in_nii.header.copy()
-    hdr.set_data_dtype(np.uint8)
-    nb.Nifti1Image(bmask.astype(np.uint8), in_nii.affine, hdr).to_filename(out_file)
- 
-    return out_file
-
-
-def _get_custom_templates(modality: str, 
+def _get_custom_templates(modality: str = 'FLAIR', 
                           template_id: str = 'GG853', 
                           template_dir: Optional[Path] = None,
                           template_res: int = 1) -> List:
     """
-    Retrieve or add a custom template to the users local TemplateFlow database.
+    Wrapper function to handle FLAIR templates not available on TemplateFlow Database
 
-    If the template is not already present in TemplateFlow, it will attempt to download if the template_id is 'GG853'
+    If the template is not already present in TemplateFlow cache dir, it will attempt to download if the template_id is 'GG853'
     or copy it from the specified directory.
 
     Parameters
@@ -110,64 +80,85 @@ def _get_custom_templates(modality: str,
         Path to a local directory containing template files.
     template_res : int
         Resolution level of the template (default: 1).
-
-    Returns
-    -------
-    int
-        0 if the template is successfully registered or already exists.
-        Raises FileNotFoundError if files are missing.
     """
 
     from pathlib import Path
     from templateflow import conf
     import re 
+    import json
+
+
+
+    license_text = """\
+    Copyright (c) 2012 Anderson M. Winkler, Peter Kochunov, David C. Glahn.
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    """
+
+    tpl_desc = {
+        "Authors": ["Winkler AM", "Kochunov P", "Glahn DC"],
+        "BIDSVersion": "1.1.0",
+        "HowToAcknowledge": "If you use these templates in your research, please cite it as: Winkler AM, Kochunov P, Glahn DC. FLAIR Templates. Available at http://brainder.org.",
+        "Identifier": "GG853",
+        "License": "See LICENSE file",
+        "Name": "GG853 - FLAIR templates for the Genetics of Brain Structure and Function Study (GOBS) 2012",
+        "ReferencesAndLinks": [
+            "https://brainder.org/download/flair/",
+            "https://s3.us-east-2.amazonaws.com/brainder/publications/2009/HBM2009_flair_poster.pdf"
+        ],
+        "TemplateFlowVersion": "1.0.0",
+        "res": {
+            "01": {
+                "origin": [-91.0, -126.0, -72.0],
+                "shape": [182, 218, 182],
+                "zooms": [1.0, 1.0, 1.0]
+            }
+        }
+    }
 
     template_dir = Path(template_dir) if template_dir else None
     tf_tpl_dir: Path = conf.TF_HOME / ('tpl-' + template_id)
 
-    tpl_head_re = rf'{template_id}.*res-(0?{template_res}).*'
+    tpl_license =tf_tpl_dir /"LICENSE"
+    tpl_desc_json = tf_tpl_dir / 'template_description.json'
+    tpl_head_re = rf'tpl-{template_id}.*res-(0?{template_res}).*'
     tpl_patterns = [
             rf'{tpl_head_re}{suffix}'
             for suffix in [f'{modality}\.nii(\.gz)?$',
-                           'desc-brain_mask\.nii(\.gz)?$',
                            'label-CSF.*probseg\.nii(\.gz)?$',
                            'label-WM.*probseg\.nii(\.gz)?$',
                            'label-GM.*probseg\.nii(\.gz)?$']]
 
     # Check if templateflow directory is present
     if tf_tpl_dir.exists():
-        matches = [fname for fname in tf_tpl_dir.rglob("*") for ptn in tpl_patterns if re.match(ptn, str(fname.name))]
-        print(f"Template {template_id} already exists in the templateflow database.")
 
-        if len(matches) == len(tpl_patterns):
-            print(f'Found {len(matches)}/5 matches')
-            return 0
+        matches = [fname for fname in tf_tpl_dir.rglob("*") for ptn in tpl_patterns if re.match(ptn, str(fname.name))]
+        print(f"Template {template_id} already exists in the templateflow database. \nDirectory: {tf_tpl_dir}")
+        if len(matches) >= len(tpl_patterns):
+            print(f'Found {len(matches)}/4 matches')
         else: 
             print(f"Insufficient files in local templateflow directory, attempting to source...")
 
 
-    if template_id == 'GG853':
+    if not template_dir:
         # Download the template files if template_id is GG853
         tf_tpl_dir.mkdir(parents=True, exist_ok=True)
         dwnld_head = 'https://s3.us-east-2.amazonaws.com/brainder/software/flair/templates/'
-        dwnld_lst = [{'url_name': 'GG-853-FLAIR-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_{modality}.nii.gz'},
-                     {'url_name': 'GG-853-GM-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-GM_probseg.nii.gz'},
-                     {'url_name': 'GG-853-WM-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-WM_probseg.nii.gz'},
-                     {'url_name': 'GG-853-CSF-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-CSF_probseg.nii.gz'}]
+        dwnld_lst = [{'ref_std': {'url_name': 'GG-853-FLAIR-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_{modality}.nii.gz'}},
+                     {'gm_probseg' : {'url_name': 'GG-853-GM-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-GM_probseg.nii.gz'}},
+                     {'wm_probseg' : {'url_name': 'GG-853-WM-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-WM_probseg.nii.gz'}},
+                     {'csf_probseg' : {'url_name': 'GG-853-CSF-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-CSF_probseg.nii.gz'}}]
 
-        for file_dict in dwnld_lst:
-            if not (tf_tpl_dir / file_dict['tf_name']).exists():
-                _download_file(f"{dwnld_head}{file_dict['url_name']}", tf_tpl_dir / file_dict['tf_name'])
+        for tpl_dict in dwnld_lst:
+            for tpl_key, tpl_val in tpl_dict.items():
+                dfile = tf_tpl_dir / tpl_val['tf_name']
+                if not (dfile).exists():
+                    _download_file(f"{dwnld_head}{tpl_val['url_name']}", tf_tpl_dir / tpl_val['tf_name'])
 
-        # Create a brain mask GG853 from tissue probability maps
-        bmask_files = [f for f in tf_tpl_dir.rglob("*")  if f'res-0{template_res}_desc-brain_mask' in f.name]
-        if len(bmask_files) == 0:
-            #bmask_file = _construct_mask(tpl_id= template_id, template_dir=tf_tpl_dir)
-            bmask_file = _construct_mask(tpl_id= template_id, template_dir=tf_tpl_dir)
-
-        else:
-            bmask_file = bmask_files[0]
-        
     else: 
         # Copy the template files from the specified directory
         if template_dir.exists():
@@ -176,10 +167,14 @@ def _get_custom_templates(modality: str,
                 for file in matches:
                     shutil.copy2(file, tf_tpl_dir / file.name)
                 print(f"Template {template_id} added to the templateflow database.")
-                return 0
             else: 
                 raise FileNotFoundError(f"Template directory does not contain all required files: {template_dir}")
         else:
             raise FileNotFoundError(f"Template directory not found: {template_dir}")
-    return [bmask_file, tf_tpl_dir]
+    
+    if not tpl_desc_json.exists():
+        with tpl_desc_json.open("w") as f:
+            json.dump(tpl_desc, f, indent=4)
 
+    if not tpl_license.exists():
+        tpl_license.write_text(license_text)

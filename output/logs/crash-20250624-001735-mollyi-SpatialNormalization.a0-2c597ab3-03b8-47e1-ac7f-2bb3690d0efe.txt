@@ -1,0 +1,48 @@
+Node: mriqc_wf.anatMRIQC.SpatialNormalization.SpatialNormalization
+Working directory: /home/mollyi/Projects/EMRIqc/code/mriqc-flair/mriqc/work/mriqc_wf/anatMRIQC/SpatialNormalization/dc529c678cf07f9c5780e64cea912da520ffc1c0/SpatialNormalization
+
+Node inputs:
+
+compress_report = auto
+explicit_masking = True
+flavor = testing
+float = False
+initial_moving_transform = <undefined>
+lesion_mask = <undefined>
+moving = T1w
+moving_image = /home/mollyi/Projects/EMRIqc/code/mriqc-flair/mriqc/work/mriqc_wf/anatMRIQC/synthstrip_wf/dc529c678cf07f9c5780e64cea912da520ffc1c0/post_n4/clipped_corrected.nii.gz
+moving_mask = /home/mollyi/Projects/EMRIqc/code/mriqc-flair/mriqc/work/mriqc_wf/anatMRIQC/synthstrip_wf/dc529c678cf07f9c5780e64cea912da520ffc1c0/synthstrip/clipped_corrected_desc-brain_mask.nii.gz
+num_threads = 14
+orientation = RAS
+out_report = report.svg
+reference = FLAIR
+reference_image = <undefined>
+reference_mask = <undefined>
+settings = <undefined>
+template = MNI152NLin2009cAsym
+template_resolution = <undefined>
+template_spec = <undefined>
+
+Traceback (most recent call last):
+  File "/home/mollyi/Projects/EMRIqc/code/mriqc-flair/mriqc/mriqc/engine/plugin.py", line 64, in run_node
+    result['result'] = node.run(updatehash=updatehash)
+  File "/home/mollyi/Projects/.virtualenvs/emriqc_mriqc24-0-02/lib/python3.10/site-packages/nipype/pipeline/engine/nodes.py", line 525, in run
+    result = self._run_interface(execute=True)
+  File "/home/mollyi/Projects/.virtualenvs/emriqc_mriqc24-0-02/lib/python3.10/site-packages/nipype/pipeline/engine/nodes.py", line 643, in _run_interface
+    return self._run_command(execute)
+  File "/home/mollyi/Projects/.virtualenvs/emriqc_mriqc24-0-02/lib/python3.10/site-packages/nipype/pipeline/engine/nodes.py", line 769, in _run_command
+    raise NodeExecutionError(msg)
+nipype.pipeline.engine.nodes.NodeExecutionError: Exception raised while executing Node SpatialNormalization.
+
+Traceback:
+	Traceback (most recent call last):
+	  File "/home/mollyi/Projects/.virtualenvs/emriqc_mriqc24-0-02/lib/python3.10/site-packages/nipype/interfaces/base/core.py", line 401, in run
+	    runtime = self._run_interface(runtime)
+	  File "/home/mollyi/Projects/.virtualenvs/emriqc_mriqc24-0-02/lib/python3.10/site-packages/niworkflows/interfaces/norm.py", line 182, in _run_interface
+	    ants_args = self._get_ants_args()
+	  File "/home/mollyi/Projects/.virtualenvs/emriqc_mriqc24-0-02/lib/python3.10/site-packages/niworkflows/interfaces/norm.py", line 427, in _get_ants_args
+	    ref_template, template_spec = get_template_specs(
+	  File "/home/mollyi/Projects/.virtualenvs/emriqc_mriqc24-0-02/lib/python3.10/site-packages/niworkflows/utils/misc.py", line 117, in get_template_specs
+	    raise RuntimeError(
+	RuntimeError: Could not find template "MNI152NLin2009cAsym" with specs={'suffix': 'FLAIR', 'desc': None, 'atlas': None, 'resolution': 2}. Please revise your template argument.
+
