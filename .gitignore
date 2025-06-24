@@ -76,3 +76,4 @@ work/
 .bids_db-*
 .pkl
 config-.*toml
+output/
