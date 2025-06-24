@@ -41,21 +41,28 @@ from mriqc import config
 from niworkflows.interfaces.reportlets.base import RegistrationRC
 
 from mriqc.workflows.anatomical.base import init_brain_tissue_segmentation
+from templateflow.api import get as get_template
 
 
-def spatial_normalization(name='SpatialNormalization'):
+def spatial_normalization(name='SynSpatialNormalization'):
     """Create a simplified workflow to perform fast spatial normalization."""
     from nipype.interfaces.ants import RegistrationSynQuick
+
+    # Have the template id handy
+    tpl_id = config.workflow.template_id
 
     # Define workflow interface
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(fields=[
-                'in_files',
-                'in_mask',
-                'tissue_tpls',
-                'tpl_target_path',
-                'tpl_mask_path',
+                'moving_image', #native space FLAIR
+                'moving_mask', #native space FLAIR mask
+                'modality', # modality of the input image
+                'reference_mask', # MNI space FLAIR mask
+                'reference_image', # MNI space FLAIR
+                'tpl_resolution', # resolution of the template
+                'tpl_id', # template id, 
+                'tpl_tissues', # tissue templates in MNI space
             ]
         ),
         name='inputnode',
@@ -77,15 +84,6 @@ def spatial_normalization(name='SpatialNormalization'):
         mem_gb=3,
     )
 
-    def _get_templates(modality):
-        if config.workflow.species.lower() == 'human':
-            tpd_id = 'GG853' if modality == 'FLAIR' else config.workflow.template_id
-    
-    if config.workflow.species.lower() == 'human':
-        #template function here?
-        template = 'find me'
-
-
     # Project standard TPMs into Native space
     tpms_std2ntv = pe.MapNode(
         ApplyTransforms(
@@ -97,17 +95,20 @@ def spatial_normalization(name='SpatialNormalization'):
         iterfield=['input_image'],
         name='tpms_std2ntv',
     )
+
     tpms_std2ntv.inputs.invert_transform_flags = [True]
 
-    tpms_std2ntv.inputs.input_image = [
-        str(p)
-        for p in get_template(
-            config.workflow.template_id,
-            suffix='probseg',
-            resolution=(1 if config.workflow.species.lower() == 'human' else None),
-            label=['CSF', 'GM', 'WM'],
-        )
-    ]
+
+    # CHANGE: make into input 
+    # tpms_std2ntv.inputs.input_image = [
+    #     str(p)
+    #     for p in get_template(
+    #         config.workflow.template_id,
+    #         suffix='probseg',
+    #         resolution=(1 if config.workflow.species.lower() == 'human' else None),
+    #         label=['CSF', 'GM', 'WM'],
+    #     )
+    # ]
     # d. MNI hmask to native space
     syn_hmask_mni2nat = pe.Node(
         ApplyTransforms(
@@ -124,29 +125,20 @@ def spatial_normalization(name='SpatialNormalization'):
 
     # fmt: off
     workflow.connect([
-        (inputnode, norm, [('tpl_target_path', 'fixed_image'),
-                           ('in_files', 'moving_image')]),
+        (inputnode, norm, [('reference_image', 'fixed_image'),
+                           ('moving_image', 'moving_image')]),
             # convert tissues from MNI to NORm
         (norm, tpms_std2ntv, [('out_matrix', 'transforms')]),
-        (inputnode, tpms_std2ntv,[('in_files', 'reference_image'), 
-                                  ('tissue_tpls', 'input_image')]),
+        (inputnode, tpms_std2ntv,[('moving_image', 'reference_image'), 
+                                  ('tpl_tissues', 'input_image')]),
             # SEGMENTATION
-            #(inputnode, syn_bts, [('in_files', 'inputnode.in_file')]),
-            #(tpms_std2ntv, syn_bts, [('output_image', 'inputnode.std_tpms')]),
-            #(inputnode, syn_bts, [('in_mask', 'inputnode.brainmask')]),
             # Headmask MNI-NAT
-            (inputnode, syn_hmask_mni2nat, [('in_files', 'reference_image')]),
+            (inputnode, syn_hmask_mni2nat, [('moving_image', 'reference_image')]),
             (norm, syn_hmask_mni2nat, [('out_matrix', 'transforms')]),
             # OUTPUTS----------------------------------------------------------------------------
             (tpms_std2ntv,outputnode, [('output_image', 'out_tpms')],
             ),  # Tissue tpls from MNI-NAT
             (norm, outputnode, [('out_matrix', 'ind2std_xfm')]),  # registration transformation
-            #(syn_bts, outputnode,
-            #    [
-            #        ('outputnode.out_segm', 'out_segm'),  # fsl fast segmentation
-            #       ('outputnode.out_pvms', 'out_pvms'),
-            #    ],
-            #),  # prior probability maps
             (syn_hmask_mni2nat, outputnode, [('output_image', 'hmask_mni2nat')]),  # hmask MNI-NAT
         ]
     )
