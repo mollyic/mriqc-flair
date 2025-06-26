@@ -19,6 +19,7 @@
 # about our expectations at
 #
 #     https://www.nipreps.org/community/licensing/
+# Modified by Molly Ireland
 #
 """Nipype interfaces to support anatomical workflow."""
 from pathlib import Path
@@ -385,6 +386,7 @@ class ComputeQI2(SimpleInterface):
 class HarmonizeInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="input data (after bias correction)")
     wm_mask = File(exists=True, mandatory=True, desc="white-matter mask")
+    modality = traits.Str(exists=True, mandatory=True, desc="image modality")
     erodemsk = traits.Bool(True, usedefault=True, desc="erode mask")
     thresh = traits.Float(0.9, usedefault=True, desc="WM probability threshold")
 
@@ -395,17 +397,19 @@ class HarmonizeOutputSpec(TraitedSpec):
 
 class Harmonize(SimpleInterface):
     """
-    Computes the artifact mask using the method described in [Mortamet2009]_.
+    Harmonize scan relative to WM median value
     """
 
     input_spec = HarmonizeInputSpec
     output_spec = HarmonizeOutputSpec
 
     def _run_interface(self, runtime):
+        # Reduced confidence threshold for FLAIR WM binary mask selection
+        confidence = 0.7 if self.inputs.modality == "FLAIR" else 0.9
 
         in_file = nb.load(self.inputs.in_file)
         wm_mask = nb.load(self.inputs.wm_mask).get_fdata()
-        wm_mask[wm_mask < 0.9] = 0
+        wm_mask[wm_mask < confidence] = 0
         wm_mask[wm_mask > 0] = 1
         wm_mask = wm_mask.astype(np.uint8)
 
