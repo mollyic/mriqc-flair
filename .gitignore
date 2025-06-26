@@ -71,3 +71,5 @@ target/
 
 # Run files
 work/
+.vscode
+output/
