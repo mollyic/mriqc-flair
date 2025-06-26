@@ -92,6 +92,7 @@ import sys
 from pathlib import Path
 from time import strftime
 from uuid import uuid4
+from collections import OrderedDict
 
 try:
     # This option is only available with Python 3.8
@@ -130,7 +131,14 @@ if not any(
 logging.addLevelName(25, "IMPORTANT")  # Add a new level between INFO and WARNING
 logging.addLevelName(15, "VERBOSE")  # Add a new level between INFO and DEBUG
 
-SUPPORTED_SUFFIXES = ("T1w", "T2w", "bold", "dwi")
+SUPPORTED_SUFFIXES = ("T1w", "T2w", "FLAIR", "bold", "dwi")
+ATROPOS_MODELS = {"T1w": OrderedDict([("csf", 1), ("gm", 2), ("wm", 3)]),
+                    "T2w": OrderedDict([("csf", 3), ("gm", 2), ("wm", 1)]),
+                    "FLAIR": OrderedDict([("csf", 1), ("gm", 2), ("wm", 3)])}
+
+from configparser import ConfigParser
+INI = ConfigParser()
+INI.read('config.ini')
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 DSA_MESSAGE = """\
@@ -381,9 +389,9 @@ class execution(_Config):
     """Output verbosity."""
     modalities = None
     """Filter input dataset by MRI type."""
-    no_sub = False
+    no_sub = True
     """Turn off submission of anonymized quality metrics to Web API."""
-    notrack = False
+    notrack = True
     """Disable the sharing of usage information with developers."""
     output_dir = None
     """Folder where derivatives will be stored."""
@@ -415,7 +423,7 @@ class execution(_Config):
     """IP address where the MRIQC WebAPI is listening."""
     work_dir = Path("work").absolute()
     """Path to a working directory where intermediate results will be available."""
-    write_graph = False
+    write_graph = True
     """Write out the computational graph corresponding to the planned preprocessing."""
 
     _layout = None
@@ -450,7 +458,7 @@ class execution(_Config):
                     r"(beh|fmap|pet|perf|meg|eeg|ieeg|micr|nirs)"
                 ),
                 # Ignore all files, except for the supported modalities
-                re.compile(r"^.+(?<!(_T1w|_T2w|bold|_dwi))\.(json|nii|nii\.gz)$"),
+                re.compile(r"^.+(?<!(_T1w|_T2w|LAIR|bold|_dwi))\.(json|nii|nii\.gz)$"),
             ]
 
             if cls.participant_label:
@@ -530,7 +538,10 @@ class workflow(_Config):
     """Subject species to choose most appropriate template"""
     template_id = "MNI152NLin2009cAsym"
     """TemplateFlow ID of template used for the anatomical processing."""
-
+    mni_resolution = 2
+    """Manual headmask"""
+    hmask_MNI = Path.cwd() / "mriqc" / "templates" / "headmask_MNI.nii.gz"
+    """Path to headmask template: """
 
 class loggers:
     """Keep loggers easily accessible (see :py:func:`init`)."""
