@@ -481,7 +481,6 @@ class RotationMask(SimpleInterface):
         self._results["out_file"] = out_file
         return runtime
 
-
 def artifact_mask(imdata, airdata, distance, zscore=10.0):
     """Compute a mask of artifacts found in the air region."""
     from statsmodels.robust.scale import mad
