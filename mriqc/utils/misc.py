@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+# Modified by Molly Ireland 
+#
 """Helper functions."""
 
 import json
@@ -36,6 +38,7 @@ except ImportError:
 IMTYPES = {
     "T1w": "anat",
     "T2w": "anat",
+    "FLAIR":"anat",
     "bold": "func",
 }
 
