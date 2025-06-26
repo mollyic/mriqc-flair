@@ -58,7 +58,7 @@ def collect_bids_data(
     for btype in listify(bids_type):
         _entities = basequery.copy()
         _entities["suffix"] = btype
-        if btype in ("T1w", "T2w", "dwi"):
+        if btype in ("T1w", "T2w", "FLAIR", "dwi"):
             _entities["datatype"] = "dwi" if btype == "dwi" else "anat"
             _entities.pop("task", None)
         imaging_data[btype] = layout.get(**_entities)
