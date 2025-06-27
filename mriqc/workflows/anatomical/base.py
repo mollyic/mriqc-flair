@@ -667,13 +667,15 @@ def airmsk_wf(name="AirMaskWorkflow"):
 
 def synthstrip_wf(name="synthstrip_wf", omp_nthreads=None):
     """Create a brain-extraction workflow using SynthStrip."""
+    from nipype.interfaces.fsl import BET
     from nipype.interfaces.ants import N4BiasFieldCorrection
     from niworkflows.interfaces.nibabel import IntensityClip, ApplyMask
     from mriqc.interfaces.synthstrip import SynthStrip
 
-    inputnode = pe.Node(niu.IdentityInterface(fields=["in_files"]), name="inputnode")
+    inputnode = pe.Node(niu.IdentityInterface(fields=["in_files", 'bspline']), name="inputnode")
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["out_corrected", "out_brain", "bias_image", "out_mask"]),
+        niu.IdentityInterface(fields=["out_corrected", "out_brain", "bias_image", 
+                                      "out_mask", "out_skin_mask"]),
         name="outputnode",
     )
 
