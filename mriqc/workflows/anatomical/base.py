@@ -534,10 +534,11 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
 
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=["in_file", "brainmask", "in_tpms"]), name="inputnode"
+        niu.IdentityInterface(fields=["in_file", "brainmask", "skinmask", 'modality', 
+                                      "in_tpms", "mask_tmpl", "ind2std_xfm"]), name="inputnode"
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["out_file", "out_denoised"]), name="outputnode"
+        niu.IdentityInterface(fields=["out_file", "out_denoised", "out_denoised_msk"]), name="outputnode"
     )
 
     def _select_wm(inlist):
@@ -564,7 +565,7 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
     )
     thresh = pe.Node(
         niu.Function(
-            input_names=["in_file", "brainmask", "aniso", "thresh"],
+            input_names=["in_file", "skinmask", "aniso", "thresh"],
             output_names=["out_file"],
             function=gradient_threshold,
         ),
@@ -577,19 +578,24 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
         thresh.inputs.thresh = 4.0
 
     apply_mask = pe.Node(ApplyMask(), name="apply_mask")
+    review = pe.Node(HeadMask_review(),name = "ReviewMask",)
 
     # fmt: off
     workflow.connect([
         (inputnode, enhance, [("in_file", "in_file"),
                               (("in_tpms", _select_wm), "wm_tpm")]),
-        (inputnode, thresh, [("brainmask", "brainmask")]),
-        (inputnode, gradient, [("brainmask", "brainmask")]),
+        (inputnode, thresh, [("skinmask", "skinmask")]),
+        (inputnode, gradient, [("skinmask", "brainmask")]),
         (inputnode, apply_mask, [("brainmask", "in_mask")]),
+        (inputnode, review, [("mask_tmpl", "hmask_tmpl"),
+                             ("ind2std_xfm", "ind2std_xfm")]),        
         (enhance, gradient, [("out_file", "in_file")]),
         (gradient, thresh, [("out_file", "in_file")]),
+        (thresh, review, [("out_file", "hmask")]),
         (enhance, apply_mask, [("out_file", "in_file")]),
-        (thresh, outputnode, [("out_file", "out_file")]),
-        (apply_mask, outputnode, [("out_file", "out_denoised")]),
+        (review, outputnode, [("out_file", "out_file")]),
+        (enhance, outputnode, [("out_file", "out_denoised")]),
+        (apply_mask, outputnode,[("out_file", "out_denoised_msk")]),
     ])
     # fmt: on
 
@@ -634,7 +640,6 @@ def airmsk_wf(name="AirMaskWorkflow"):
         niu.IdentityInterface(
             fields=[
                 "in_file",
-                "in_mask",
                 "head_mask",
                 "ind2std_xfm",
             ]
