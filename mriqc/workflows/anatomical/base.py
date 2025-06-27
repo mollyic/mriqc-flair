@@ -109,6 +109,20 @@ def anat_qc_workflow(name="anatMRIQC"):
     inputnode = pe.Node(niu.IdentityInterface(fields=["in_file"]), name="inputnode")
     inputnode.iterables = [("in_file", dataset)]
 
+    get_info = pe.Node(
+            niu.Function(
+                function = _get_info, 
+                input_names=["in_file"],
+                output_names=[
+                    'modality', 
+                    #'trans_mod', 
+                    'bspline', 
+                    'tpl_target_path', 
+                    'tpl_mask_path',
+                    'wm_tpl', 'tissue_tpls'
+                    ],
+                ), 
+            name = 'get_info')
     datalad_get = pe.Node(
         DataladIdentityInterface(fields=["in_file"], dataset_path=config.execution.bids_dir),
         name="datalad_get",
@@ -140,35 +154,50 @@ def anat_qc_workflow(name="anatMRIQC"):
     # Reports
     anat_report_wf = init_anat_report_wf()
 
+    # Additional morphological changes
+    clean_segs = clean_tissue_segs(omp_nthreads=config.nipype.omp_nthreads)
     # Connect all nodes
     # fmt: off
     workflow.connect([
+        (inputnode, get_info, [("in_file", "in_file")]),
+        (get_info, skull_stripping, [('bspline', "inputnode.bspline")]),
+        (get_info, hmsk, [('modality', "inputnode.modality")]),
+        (get_info, clean_segs, [('modality', "inputnode.modality")]),
+        (get_info, iqmswf, [("modality", "inputnode.modality")]),
         (inputnode, datalad_get, [("in_file", "in_file")]),
         (inputnode, anat_report_wf, [
             ("in_file", "inputnode.name_source"),
         ]),
         (datalad_get, to_ras, [("in_file", "in_file")]),
         (datalad_get, iqmswf, [("in_file", "inputnode.in_file")]),
-        (datalad_get, norm, [(("in_file", _get_mod), "inputnode.modality")]),
+        (get_info, norm, [('tpl_target_path', "inputnode.tpl_target_path"), 
+                               ('tpl_mask_path', "inputnode.tpl_mask_path"), 
+                               ('tissue_tpls', "inputnode.tissue_tpls")]),
         (to_ras, skull_stripping, [("out_file", "inputnode.in_files")]),
         (skull_stripping, hmsk, [
+            ("outputnode.out_skin_mask", "inputnode.skinmask"),
             ("outputnode.out_corrected", "inputnode.in_file"),
             ("outputnode.out_mask", "inputnode.brainmask"),
         ]),
         (skull_stripping, bts, [("outputnode.out_mask", "inputnode.brainmask")]),
         (skull_stripping, norm, [
-            ("outputnode.out_corrected", "inputnode.moving_image"),
-            ("outputnode.out_mask", "inputnode.moving_mask")]),
+            ("outputnode.out_corrected", "inputnode.in_files"),
+            ("outputnode.out_mask", "inputnode.in_mask")]),
         (norm, bts, [("outputnode.out_tpms", "inputnode.std_tpms")]),
+        (bts, clean_segs, [
+            ("outputnode.out_segm", "inputnode.classified_image"), 
+            ("outputnode.out_pvms", "inputnode.posteriors")]),
         (norm, amw, [
             ("outputnode.ind2std_xfm", "inputnode.ind2std_xfm")]),
         (norm, iqmswf, [
             ("outputnode.out_tpms", "inputnode.std_tpms")]),
-        (norm, anat_report_wf, ([
-            ("outputnode.out_report", "inputnode.mni_report")])),
-        (norm, hmsk, [("outputnode.out_tpms", "inputnode.in_tpms")]),
+        # (norm, anat_report_wf, ([
+        #     ("outputnode.out_report", "inputnode.mni_report")])),
+        (norm, hmsk, [("outputnode.out_tpms", "inputnode.in_tpms"), 
+                      ("outputnode.ind2std_xfm", "inputnode.ind2std_xfm"), 
+                      ("outputnode.hmask_mni2nat", "inputnode.mask_tmpl")]),
         (to_ras, amw, [("out_file", "inputnode.in_file")]),
-        (skull_stripping, amw, [("outputnode.out_mask", "inputnode.in_mask")]),
+        #(skull_stripping, amw, [("outputnode.out_mask", "inputnode.in_mask")]),
         (hmsk, amw, [("outputnode.out_file", "inputnode.head_mask")]),
         (to_ras, iqmswf, [("out_file", "inputnode.in_ras")]),
         (skull_stripping, iqmswf, [("outputnode.out_corrected", "inputnode.inu_corrected"),
@@ -179,7 +208,7 @@ def anat_qc_workflow(name="anatMRIQC"):
                        ("outputnode.art_mask", "inputnode.artmask"),
                        ("outputnode.rot_mask", "inputnode.rotmask")]),
         (hmsk, bts, [("outputnode.out_denoised", "inputnode.in_file")]),
-        (bts, iqmswf, [("outputnode.out_segm", "inputnode.segmentation"),
+        (clean_segs, iqmswf, [("outputnode.out_segm", "inputnode.segmentation"),
                        ("outputnode.out_pvms", "inputnode.pvms")]),
         (hmsk, iqmswf, [("outputnode.out_file", "inputnode.headmask")]),
         (to_ras, anat_report_wf, [("out_file", "inputnode.in_ras")]),
