@@ -345,7 +345,7 @@ def init_brain_tissue_segmentation(name="brain_tissue_segmentation"):
 
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=["in_file", "brainmask", "std_tpms"]),
+        niu.IdentityInterface(fields=["in_file", "brainmask", "std_tpms", 'likelihood_model']),
         name="inputnode",
     )
     outputnode = pe.Node(
@@ -374,6 +374,8 @@ def init_brain_tissue_segmentation(name="brain_tissue_segmentation"):
             out_classified_image_name="segment.nii.gz",
             output_posteriors_name_template="segment_%02d.nii.gz",
             num_threads=config.nipype.omp_nthreads,
+            n_iterations=10,
+            convergence_threshold=0.00001,
         ),
         name="segmentation",
         mem_gb=5,
@@ -383,7 +385,8 @@ def init_brain_tissue_segmentation(name="brain_tissue_segmentation"):
     # fmt: off
     workflow.connect([
         (inputnode, segment, [("in_file", "intensity_images"),
-                              ("brainmask", "mask_image")]),
+                              ("brainmask", "mask_image"), 
+                              'likelihood_model', 'likelihood_model']),
         (inputnode, format_tpm_names, [('std_tpms', 'in_files')]),
         (format_tpm_names, segment, [(('file_format', _pop), 'prior_image')]),
         (segment, outputnode, [("classified_image", "out_segm"),
