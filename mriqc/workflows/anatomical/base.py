@@ -834,7 +834,8 @@ def image_gradient(in_file, brainmask, sigma=4.0, out_file=None):
     return out_file
 
 
-def gradient_threshold(in_file, brainmask, thresh=15.0, out_file=None, aniso=False):
+def gradient_threshold(in_file, skinmask, percentile=80, out_file=None, aniso=False, pad = 100, 
+                       close_iter =30, erode_iter = 1):
     """Compute a threshold from the histogram of the magnitude gradient image"""
     import nibabel as nb
     import numpy as np
