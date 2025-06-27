@@ -861,13 +861,19 @@ def gradient_threshold(in_file, brainmask, thresh=15.0, out_file=None, aniso=Fal
     hdr.set_data_dtype(np.uint8)
 
     data = imnii.get_fdata(dtype=np.float32)
-
+    #data[np.bool_(bmask)] = 100 #exaggerate regions within mask by making them 100
     mask = np.zeros_like(data, dtype=np.uint8)
+    thresh = np.percentile(data[data != 0], percentile)
     mask[data > thresh] = 1
-    mask = sim.binary_closing(mask, struct, iterations=2).astype(np.uint8)
-    mask = sim.binary_erosion(mask, sim.generate_binary_structure(3, 2)).astype(np.uint8)
 
-    segdata = np.asanyarray(nb.load(brainmask).dataobj) > 0
+    bmask = nb.load(skinmask).get_fdata()
+    #Add padding
+    bmask = np.pad(bmask, pad, mode='constant', constant_values=0)
+    mask = np.pad(mask, pad, mode='constant', constant_values=0)
+    mask = sim.binary_closing(mask, struct, iterations=close_iter).astype(np.uint8)
+    mask = sim.binary_erosion(mask, sim.generate_binary_structure(3, 2), iterations=erode_iter).astype(np.uint8)
+
+    segdata = np.asanyarray(bmask) > 0
     segdata = sim.binary_dilation(segdata, struct, iterations=2, border_value=1).astype(np.uint8)
     mask[segdata] = 1
 
@@ -882,7 +888,26 @@ def gradient_threshold(in_file, brainmask, thresh=15.0, out_file=None, aniso=Fal
             artmsk[label_im == label] = 1
 
     mask = sim.binary_fill_holes(mask, struct).astype(np.uint8)  # pylint: disable=no-member
+    mask = mask[pad:-pad, pad:-pad, pad:-pad] #remove padding
+    
+    filled = 1
+    # Ensures mask is anchored to  bottom boundary: if the bottom-most slice already contains any non-zero voxel set to 1
+    if np.any(mask[:, :, 0]) == 1:
+        mask[:, :, 0] = 1 
 
+    else:
+        # anchors the mask to the bottom of the image for stability during fill operations
+        for row_idx in range(mask.shape[2]):    
+            if np.all(mask[:, :, row_idx] == 0): #find the first slice from the bottom where all the voxels == 0
+                filled +=1
+                mask[:, :, row_idx] =1 #fill row with ones
+            else:
+                break # Stop finding rows when a non-empty row is encountered
+        
+    mask = sim.binary_fill_holes(mask).astype(np.uint8)                             #fill holes between bottom of image and head mask
+    mask = mask[:, :, filled:]                                                      #crop filled lines
+    mask = np.pad(mask, [(0, 0), (0, 0), (filled, 0)], mode='constant', constant_values=0)
+    
     out_file = out_file or str(generate_filename(in_file, suffix="gradmask").absolute())
     nb.Nifti1Image(mask, imnii.affine, hdr).to_filename(out_file)
     return out_file
