@@ -138,8 +138,8 @@ def ants_brain_extraction_wf(
     wf.connect(
         [
             # resample scans at lower resolution
-            (inputnode, res_target, [('in_files', 'in_file')]),
-            (inputnode, res_tmpl, [('tpl_target_path', 'in_file')]),
+            # (inputnode, res_target, [('in_files', 'in_file')]),
+            # (inputnode, res_tmpl, [('tpl_target_path', 'in_file')]),
             (inputnode, syn_norm, [('tpl_target_path', 'fixed_image')]),
             (inputnode, syn_norm, [('in_files', 'moving_image')]),
             # convert tissues from MNI to NORm
