@@ -707,6 +707,12 @@ def synthstrip_wf(name="synthstrip_wf", omp_nthreads=None):
         num_threads=omp_nthreads,
     )
 
+    betted_skin = pe.Node(
+        BET(frac =0.2),
+        name="betted_skin",
+        num_threads=omp_nthreads)
+    betted_skin.inputs.args = '-A'
+    betted_skin.inputs.surfaces = True
     final_masked = pe.Node(ApplyMask(), name="final_masked")
     final_inu = pe.Node(niu.Function(function=_apply_bias_correction), name="final_inu")
 
@@ -714,6 +720,8 @@ def synthstrip_wf(name="synthstrip_wf", omp_nthreads=None):
     # fmt: off
     workflow.connect([
         (inputnode, final_inu, [("in_files", "in_file")]),
+        (inputnode, pre_n4, [('bspline', "bspline_fitting_distance")]),
+        (inputnode, post_n4, [('bspline', "bspline_fitting_distance")]),
         (inputnode, pre_clip, [("in_files", "in_file")]),
         (pre_clip, pre_n4, [("out_file", "input_image")]),
         (pre_n4, synthstrip, [("output_image", "in_file")]),
@@ -726,6 +734,8 @@ def synthstrip_wf(name="synthstrip_wf", omp_nthreads=None):
         (post_n4, outputnode, [("bias_image", "bias_image")]),
         (synthstrip, outputnode, [("out_mask", "out_mask")]),
         (post_n4, outputnode, [("output_image", "out_corrected")]),
+        (pre_n4, betted_skin,       [("output_image", "in_file")]),
+        (betted_skin, outputnode,   [("outskin_mask_file", "out_skin_mask")]),
     ])
     # fmt: on
     return workflow
