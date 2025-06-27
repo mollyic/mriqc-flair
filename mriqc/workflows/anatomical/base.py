@@ -161,6 +161,10 @@ def anat_qc_workflow(name='anatMRIQC'):
     hmsk = headmsk_wf(omp_nthreads=config.nipype.omp_nthreads)
     # 4. Spatial Normalization, using ANTs
     norm = spatial_normalization()
+    # 4a. QuickSyn spatial normalisation
+    from mriqc.workflows.anatomical.modules.FLAIR_normalisation_emriqc import spatial_normalization as quicksyn_norm
+    syn_norm = quicksyn_norm()
+
     # 5. Air mask (with and without artifacts)
     amw = airmsk_wf()
     # 6. Brain tissue segmentation
@@ -182,7 +186,10 @@ def anat_qc_workflow(name='anatMRIQC'):
                 'tpl_reference',
                 'tpl_mask',
                 'wm_tpl',
-                'tissue_tpls'],
+                'tissue_tpls',
+                'tpl_res', 
+                'tpl_id'
+                ],
         ),
         name='get_info',
     )
@@ -199,8 +206,24 @@ def anat_qc_workflow(name='anatMRIQC'):
         #                     ('entities', 'inputnode.entities')]),
         (get_info, norm, [('modality', 'inputnode.modality'),
                          ('tpl_reference', 'inputnode.reference_image'), 
-                         ('tpl_mask', 'inputnode.reference_mask')]),
+                         ('tpl_mask', 'inputnode.reference_mask'), 
+                         ('tpl_res', 'inputnode.tpl_resolution'), 
+                         ('tpl_id', 'inputnode.tpl_id'), 
+                         ('tissue_tpls', "inputnode.tpl_tissues")
+                         ]),
         (to_ras, skull_stripping, [('out_file', 'inputnode.in_files')]),
+        (skull_stripping, syn_norm, [
+            ('outputnode.out_corrected', 'inputnode.moving_image'),
+            ('outputnode.out_mask', 'inputnode.moving_mask'), ]),
+        # (get_info, syn_norm,              # [('tpl_target_path', "inputnode.tpl_target_path"), 
+        #                                     # ('tpl_mask_path', "inputnode.tpl_mask_path"), 
+        #                                      ('tissue_tpls', "inputnode.tpl_tissues")]),
+        (get_info, syn_norm, [('modality', 'inputnode.modality'),
+                         ('tpl_reference', 'inputnode.reference_image'), 
+                         ('tpl_mask', 'inputnode.reference_mask'), 
+                         ('tpl_res', 'inputnode.tpl_resolution'), 
+                         ('tpl_id', 'inputnode.tpl_id'), 
+                         ('tissue_tpls', "inputnode.tpl_tissues")]),
         #(skull_stripping, hmsk, [
         #    ('outputnode.out_corrected', 'inputnode.in_file'),
         #    ('outputnode.out_mask', 'inputnode.brainmask'),
@@ -273,9 +296,10 @@ def anat_qc_workflow(name='anatMRIQC'):
 
 def spatial_normalization(name='SpatialNormalization'):
     """Create a simplified workflow to perform fast spatial normalization."""
-    from mriqc.workflows.anatomical.modules.wrap_normalisation import (
+    from mriqc.workflows.anatomical.modules.flair_spatialnorm import (
         WrapSpatialNormalizationRPT as RobustMNINormalization,
     )
+    from pathlib import Path
 
     # Have the template id handy
     tpl_id = config.workflow.template_id
@@ -283,7 +307,14 @@ def spatial_normalization(name='SpatialNormalization'):
     # Define workflow interface
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=['moving_image', 'moving_mask', 'modality', 'reference_mask', 'reference_image']),
+        niu.IdentityInterface(fields=['moving_image', 
+                                      'moving_mask', 
+                                      'modality', 
+                                      'reference_mask', 
+                                      'reference_image', 
+                                      'tpl_resolution', 
+                                      'tpl_id', 
+                                      'tpl_tissues']),
         name='inputnode',
     )
     outputnode = pe.Node(
@@ -294,10 +325,8 @@ def spatial_normalization(name='SpatialNormalization'):
     # Spatial normalization
     norm = pe.Node(
         RobustMNINormalization(
-            flavor=['testing', 'fast'][config.execution.debug],
             num_threads=config.nipype.omp_nthreads,
             float=config.execution.ants_float,
-            template=tpl_id,
             generate_report=True,
         ),
         name='SpatialNormalization',
@@ -305,15 +334,20 @@ def spatial_normalization(name='SpatialNormalization'):
         num_threads=config.nipype.omp_nthreads,
         mem_gb=3,
     )
+
     if config.workflow.species.lower() == 'human':
-        # norm.inputs.reference_mask = str(
-        #     get_template(tpl_id, resolution=2, desc='brain', suffix='mask')
-        # )
-        norm.inputs.reference_mask = inputnode.inputs.reference_mask 
-        norm.inputs.reference_image = inputnode.inputs.reference_image
+        workflow.connect([
+        (inputnode, norm, [('reference_mask', 'reference_mask'),
+                           ('reference_image', 'reference_image'),
+                           ('tpl_resolution', 'flavor'), 
+                           ('tpl_id', 'template'), 
+                           ])
+                           ])
     else:
         norm.inputs.reference_image = str(get_template(tpl_id, suffix='T2w'))
         norm.inputs.reference_mask = str(get_template(tpl_id, desc='brain', suffix='mask')[0])
+        norm.inputs.flavor = ['testing', 'fast'][config.execution.debug] 
+        norm.inputs.template = tpl_id
 
     # Project standard TPMs into T1w space
     tpms_std2t1w = pe.MapNode(
@@ -327,7 +361,7 @@ def spatial_normalization(name='SpatialNormalization'):
         name='tpms_std2t1w',
     )
 
-    tpms_std2t1w.inputs.invert_transform_flags = [True]
+    #tpms_std2t1w.inputs.invert_transform_flags = [True]
 
     # Project standard headmask to native space
     hmask_std2t1w = pe.Node(
@@ -337,25 +371,25 @@ def spatial_normalization(name='SpatialNormalization'):
             interpolation='Gaussian',  # Choose the appropriate interpolation method
             float=config.execution.ants_float,
         ),
-        name='syn_hmask_mni2nat',
+        name='hmask_mni2nat',
     )
     
-    from pathlib import Path
     hmask_std2t1w.inputs.input_image = Path(config.workflow.hmask_MNI)
-    hmask_std2t1w.inputs.invert_transform_flags = [True]
+    #hmask_std2t1w.inputs.invert_transform_flags = [True]
 
 
     # fmt: off
     workflow.connect([
-       # inputnode, norm, [('tpl_reference', 'fixed_image'), #check these inputs
-       #                    ('in_files', 'moving_image')]),
         (inputnode, norm, [('moving_image', 'moving_image'),
                            ('moving_mask', 'moving_mask'),
                            ('modality', 'reference')]),
-        (inputnode, tpms_std2t1w, [('moving_image', 'reference_image')]),
+        (inputnode, tpms_std2t1w, [('moving_image', 'reference_image'), 
+                                   ('tpl_tissues', 'input_image')]),
         (norm, tpms_std2t1w, [
             ('inverse_composite_transform', 'transforms'),
         ]),
+        (inputnode, hmask_std2t1w, [('moving_image', 'reference_image')]),
+        (norm, hmask_std2t1w, [('inverse_composite_transform', 'transforms')]),
         (norm, outputnode, [
             ('composite_transform', 'ind2std_xfm'),
             ('out_report', 'out_report'),
@@ -896,7 +930,7 @@ def _get_info(in_file):
     from templateflow.api import get as get_template
     from niworkflows.utils.misc import get_template_specs
     #from mriqc.workflows.anatomical.base import _get_mod
-    from mriqc.workflows.anatomical.modules.wrap_normalisation import _get_custom_templates
+    from mriqc.workflows.anatomical.modules.flair_spatialnorm import _get_custom_templates
 
     """
     Retrieve information for future processing, returns:
@@ -944,8 +978,9 @@ def _get_info(in_file):
     )
 
     # 4. Get binary mask
+    mask_res = 1 if modality == 'FLAIR' else 2
     tpl_mask = str(
-        get_template(tpl_id, resolution=2, desc='brain', suffix='mask')
+        get_template(tpl_id, resolution=mask_res, desc='brain', suffix='mask')
     )
 
     # Check species and configure tpls accordingly
@@ -971,17 +1006,20 @@ def _get_info(in_file):
     # 6. WM template
     wm_tpl = next(tissue_tpl for tissue_tpl in tissue_tpls if 'label-WM' in tissue_tpl)
 
+
+    # 7. Get template resolution, default is 1 for FLAIR
+    tpl_res = 'precise' if modality == 'FLAIR' else ['testing', 'fast'][config.execution.debug] 
+
     print(f'\n\nModality: {modality}')
     print(f'    * in_file:                  {in_file}')
     print(f'    * tpl_id:                   {tpl_id}')
     print(f'    * trans_mod:                {trans_mod}')
     print(f'    * bspline:                  {bspline}')
-    print(f'    * tpl_reference:          {tpl_reference}')
-    #print(f'    * common_spec:              {common_spec}')
-    print(f'    * tpl_mask:            {tpl_mask}')
+    print(f'    * tpl_reference:            {tpl_reference}')
+    print(f'    * tpl_resolution:           {tpl_res}')
+    print(f'    * tpl_mask:                 {tpl_mask}')
     print(f'    * tissue_tpls:              {tissue_tpls}')
     print(f'    * wm_tpl:                   {wm_tpl}\n\n')
-    return modality, trans_mod, bspline, tpl_reference, tpl_mask, wm_tpl, tissue_tpls
+    return modality, trans_mod, bspline, tpl_reference, tpl_mask, wm_tpl, tissue_tpls, tpl_res, tpl_id
 
 
-#_get_info('/home/mollyi/Projects/EMRIqc/RADIOL_niis/sub-101565/ses-01/anat/sub-101565_T1w.nii.gz')
