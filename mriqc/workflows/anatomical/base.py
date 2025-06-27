@@ -788,7 +788,7 @@ def _enhance(in_file, wm_tpm, out_file=None):
 
     imnii = nb.load(in_file)
     data = imnii.get_fdata(dtype=np.float32)
-    range_max = np.percentile(data[data > 0], 99.98)
+    range_max = np.percentile(data[data > 0], 99.95)
     excess = data > range_max
 
     wm_prob = nb.load(wm_tpm).get_fdata()
@@ -807,7 +807,7 @@ def _enhance(in_file, wm_tpm, out_file=None):
     return out_file
 
 
-def image_gradient(in_file, brainmask, sigma=4.0, out_file=None):
+def image_gradient(in_file, brainmask, sigma=3.0, out_file=None):
     """Computes the magnitude gradient of an image using numpy"""
     import nibabel as nb
     import numpy as np
