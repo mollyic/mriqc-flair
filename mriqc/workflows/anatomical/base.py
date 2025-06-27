@@ -87,7 +87,7 @@ def anat_qc_workflow(name="anatMRIQC"):
 
     """
 
-    dataset = config.workflow.inputs.get("T1w", []) + config.workflow.inputs.get("T2w", [])
+    dataset = config.workflow.inputs.get("T1w", []) + config.workflow.inputs.get("T2w", []) + config.workflow.inputs.get("FLAIR", [])
 
     message = BUILDING_WORKFLOW.format(
         modality="anatomical",
@@ -262,26 +262,6 @@ def spatial_normalization(name="SpatialNormalization"):
         norm.inputs.reference_image = str(get_template(tpl_id, suffix="T2w"))
         norm.inputs.reference_mask = str(get_template(tpl_id, desc="brain", suffix="mask")[0])
 
-    # Project standard TPMs into T1w space
-    tpms_std2t1w = pe.MapNode(
-        ApplyTransforms(
-            dimension=3,
-            default_value=0,
-            interpolation="Gaussian",
-            float=config.execution.ants_float,
-        ),
-        iterfield=["input_image"],
-        name="tpms_std2t1w",
-    )
-    tpms_std2t1w.inputs.input_image = [
-        str(p)
-        for p in get_template(
-            config.workflow.template_id,
-            suffix="probseg",
-            resolution=(1 if config.workflow.species.lower() == "human" else None),
-            label=["CSF", "GM", "WM"],
-        )
-    ]
 
     # Project MNI segmentation to T1 space
     tpms_std2t1w = pe.MapNode(
@@ -433,6 +413,7 @@ def compute_iqms(name="ComputeIQMs"):
         niu.IdentityInterface(
             fields=[
                 "in_file",
+                "modality",
                 "in_ras",
                 "brainmask",
                 "airmask",
@@ -797,7 +778,6 @@ def _binarize(in_file, threshold=0.5, out_file=None):
     hdr.set_data_dtype(np.uint8)
     nb.Nifti1Image(data.astype(np.uint8), nii.affine, hdr).to_filename(out_file)
     return out_file
-
 
 def _enhance(in_file, wm_tpm, out_file=None):
     import numpy as np
