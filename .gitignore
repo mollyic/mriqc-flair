@@ -77,3 +77,4 @@ work/
 .pkl
 config-.*toml
 output/
+logs/
