@@ -223,46 +223,31 @@ def anat_qc_workflow(name="anatMRIQC"):
 
 
 def spatial_normalization(name="SpatialNormalization"):
-    """Create a simplied workflow to perform fast spatial normalization."""
-    from niworkflows.interfaces.reportlets.registration import (
-        SpatialNormalizationRPT as RobustMNINormalization,
-    )
-
-    # Have the template id handy
-    tpl_id = config.workflow.template_id
-
+    """Create a simplied workflow to perform spatial normalization with Ants QuickSyn."""
+    from nipype.interfaces.ants import (RegistrationSynQuick)
     # Define workflow interface
-    workflow = pe.Workflow(name=name)
+    workflow = pe.Workflow(name=name)    
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=["moving_image", "moving_mask", "modality"]),
-        name="inputnode",
-    )
+        niu.IdentityInterface(fields=[
+            "in_files", 
+            'in_mask', 
+            'tissue_tpls',
+            'tpl_target_path',
+            'tpl_mask_path',]), 
+            name="inputnode")
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["out_tpms", "out_report", "ind2std_xfm"]),
+        niu.IdentityInterface(fields=["out_tpms", "out_report", "ind2std_xfm", 'hmask_mni2nat']),
         name="outputnode",
     )
-
-    # Spatial normalization
-    norm = pe.Node(
-        RobustMNINormalization(
-            flavor=["testing", "fast"][config.execution.debug],
-            num_threads=config.nipype.omp_nthreads,
-            float=config.execution.ants_float,
-            template=tpl_id,
-            generate_report=True,
+    
+    #a. RegistrationSynQuick
+    syn_norm = pe.Node(
+        RegistrationSynQuick(
+            dimension=3,
+            transform_type = "b",
         ),
         name="SpatialNormalization",
-        # Request all MultiProc processes when ants_nthreads > n_procs
-        num_threads=config.nipype.omp_nthreads,
-        mem_gb=3,
     )
-    if config.workflow.species.lower() == "human":
-        norm.inputs.reference_mask = str(
-            get_template(tpl_id, resolution=2, desc="brain", suffix="mask")
-        )
-    else:
-        norm.inputs.reference_image = str(get_template(tpl_id, suffix="T2w"))
-        norm.inputs.reference_mask = str(get_template(tpl_id, desc="brain", suffix="mask")[0])
 
 
     # Project MNI segmentation to T1 space
@@ -270,36 +255,37 @@ def spatial_normalization(name="SpatialNormalization"):
         ApplyTransforms(
             dimension=3,
             default_value=0,
-            interpolation="Linear",
+            interpolation="Gaussian",
             float=config.execution.ants_float,
         ),
         iterfield=["input_image"],
         name="tpms_std2t1w",
     )
-    tpms_std2t1w.inputs.input_image = [
-        str(p)
-        for p in get_template(
-            config.workflow.template_id,
-            suffix="probseg",
-            resolution=(1 if config.workflow.species.lower() == "human" else None),
-            label=["CSF", "GM", "WM"],
-        )
-    ]
-
+    tpms_std2t1w.inputs.invert_transform_flags = [True]
     # fmt: off
+
+    # Project hmask in standard space into native space 
+    syn_hmask_mni2nat = pe.Node(
+                            ApplyTransforms(
+                                dimension=3,
+                                default_value=0,
+                                interpolation="Gaussian",  # Choose the appropriate interpolation method
+                                float=config.execution.ants_float,
+                            ),
+                            name="syn_hmask_mni2nat")
+    syn_hmask_mni2nat.inputs.input_image = config.workflow.hmask_MNI
+    syn_hmask_mni2nat.inputs.invert_transform_flags = [True]
+
     workflow.connect([
-        (inputnode, norm, [("moving_image", "moving_image"),
-                           ("moving_mask", "moving_mask"),
-                           ("modality", "reference")]),
-        (inputnode, tpms_std2t1w, [("moving_image", "reference_image")]),
-        (norm, tpms_std2t1w, [
-            ("inverse_composite_transform", "transforms"),
-        ]),
-        (norm, outputnode, [
-            ("composite_transform", "ind2std_xfm"),
-            ("out_report", "out_report"),
-        ]),
-        (tpms_std2t1w, outputnode, [("output_image", "out_tpms")]),
+        (inputnode, syn_norm, [("in_files", "moving_image")]),
+        (syn_norm, tpms_std2t1w, [("out_matrix", "transforms")]),
+        (inputnode, tpms_std2t1w, [("in_files", "reference_image"),
+                                   ("tissue_tpls", "input_image")]),
+        (inputnode, syn_hmask_mni2nat, [("in_files", "reference_image")]),
+        (syn_norm, syn_hmask_mni2nat, [("out_matrix", "transforms")]),
+        (tpms_std2t1w, outputnode, [("output_image", "out_tpms")])
+        (syn_norm, outputnode, [("out_matrix", "ind2std_xfm")]),
+        (syn_hmask_mni2nat, outputnode, [("output_image", "hmask_mni2nat")]), 
     ])
     # fmt: on
 
