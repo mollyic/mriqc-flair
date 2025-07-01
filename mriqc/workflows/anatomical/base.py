@@ -302,6 +302,7 @@ def spatial_normalization(name="SpatialNormalization"):
                                 float=config.execution.ants_float,
                             ),
                             name="syn_hmask_mni2nat")
+    from pathlib import Path
     syn_hmask_mni2nat.inputs.input_image = config.workflow.hmask_MNI
     syn_hmask_mni2nat.inputs.invert_transform_flags = [True]
 
