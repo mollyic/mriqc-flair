@@ -113,7 +113,7 @@ def _mask_pvms(pvm, modality, seg_lst):
     from nipype.utils.filemanip import fname_presuffix
     from os import getcwd
     from scipy.ndimage import binary_erosion, generate_binary_structure, label, binary_fill_holes
-    from emriqc.config import ATROPOS_MODELS
+    from mriqc.config import ATROPOS_MODELS
     import numpy as np
 
     model = ATROPOS_MODELS[modality]
@@ -164,32 +164,53 @@ def _select_labels(in_segm, modality):
     import numpy as np
     import nibabel as nb
     from nipype.utils.filemanip import fname_presuffix
-    from emriqc.config import ATROPOS_MODELS
+    from mriqc.config import ATROPOS_MODELS
 
     model = ATROPOS_MODELS[modality]
     cwd = getcwd()
     nii = nb.load(in_segm)
     label_data = np.asanyarray(nii.dataobj).astype("uint8")
 
+    # for tissue, label in model.items():
+    #     newnii = nii.__class__(np.uint8(label_data == label), nii.affine, nii.header)
+    #     newnii.set_data_dtype("uint8")
+    #     out_file = fname_presuffix(in_segm, suffix=f"_class-{label}_tissue-{tissue}", newpath=cwd)
+    #     newnii.to_filename(out_file)
+    #     #out_files.append(out_file)
+    #     if tissue == 'csf':
+    #         out_csf = out_file
+    #     if tissue == 'gm':
+    #         out_gm = out_file
+    #     if tissue == 'wm':
+    #         out_wm = out_file
+
+    #     print(f'\t * Tissue: {tissue}')
+    #     print(f'\t * label: {label}')
+    #     print(f'\t * in_segm: {in_segm}')
+    #     print(f'\t * out_file: {out_file}')
+    # return out_csf, out_gm, out_wm
+
+    out_files = {}
     for tissue, label in model.items():
-        newnii = nii.__class__(np.uint8(label_data == label), nii.affine, nii.header)
-        newnii.set_data_dtype("uint8")
-        out_file = fname_presuffix(in_segm, suffix=f"_class-{label}_tissue-{tissue}", newpath=cwd)
-        newnii.to_filename(out_file)
-        #out_files.append(out_file)
-        if tissue == 'csf':
-            out_csf = out_file
-        if tissue == 'gm':
-            out_gm = out_file
-        if tissue == 'wm':
-            out_wm = out_file
+        mask_data = (label_data == label).astype(np.uint8)
+        new_nii = nii.__class__(mask_data, nii.affine, nii.header)
+        new_nii.set_data_dtype("uint8")
 
-        print(f'\t * Tissue: {tissue}')
-        print(f'\t * label: {label}')
-        print(f'\t * in_segm: {in_segm}')
-        print(f'\t * out_file: {out_file}')
+        out_file = fname_presuffix(
+            in_segm,
+            suffix=f"_class-{label}_tissue-{tissue}",
+            newpath=cwd
+        )
+        new_nii.to_filename(out_file)
 
-    return out_csf, out_gm, out_wm
+        if tissue in {"csf", "gm", "wm"}:
+            out_files[tissue] = out_file
+
+    return (
+        out_files.get("csf"),
+        out_files.get("gm"),
+        out_files.get("wm")
+    )
 
 def _tissue_wf(tissue, padding=10):
     """

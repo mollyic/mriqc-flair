@@ -308,7 +308,8 @@ def spatial_normalization(name="SpatialNormalization"):
     syn_hmask_mni2nat.inputs.invert_transform_flags = [True]
 
     workflow.connect([
-        (inputnode, syn_norm, [("in_files", "moving_image")]),
+        (inputnode, syn_norm, [("in_files", "moving_image"), 
+                               ("tpl_target_path", "fixed_image")]),
         (syn_norm, tpms_std2t1w, [("out_matrix", "transforms")]),
         (inputnode, tpms_std2t1w, [("in_files", "reference_image"),
                                    ("tissue_tpls", "input_image")]),

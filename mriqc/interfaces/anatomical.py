@@ -193,7 +193,7 @@ class StructuralQC(SimpleInterface):
         )
 
         # FBER
-        self._results["fber"] = fber(inudata, headdata, hatdata, rotdata)
+        self._results["fber"] = fber(inudata, headdata, rotdata)
 
         # EFC
         self._results["efc"] = efc(inudata, rotdata)
@@ -510,7 +510,7 @@ class HeadMask_review(SimpleInterface):
         from nitransforms.linear import Affine
         import nibabel as nib
         import numpy as np
-        from mriqc.workflows import generate_filename
+        from mriqc.workflows.utils import generate_filename
 
         h_data = nib.load(self.inputs.hmask)
         hmask_data = h_data.get_fdata()
