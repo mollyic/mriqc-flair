@@ -541,7 +541,8 @@ class workflow(_Config):
     mni_resolution = 2
     """Manual headmask"""
     hmask_MNI = Path.cwd() / "mriqc" / "templates" / "tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz"
-    """Path to headmask template: """
+    hmask_MNI = f"{os.getcwd()}/mriqc/templates/tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz"
+    """Path to headmask template """
 
 class loggers:
     """Keep loggers easily accessible (see :py:func:`init`)."""

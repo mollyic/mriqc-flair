@@ -115,11 +115,12 @@ def anat_qc_workflow(name="anatMRIQC"):
                 input_names=["in_file"],
                 output_names=[
                     'modality', 
-                    #'trans_mod', 
                     'bspline', 
                     'tpl_target_path', 
                     'tpl_mask_path',
-                    'wm_tpl', 'tissue_tpls'
+                    'wm_tpl', 
+                    'tissue_tpls', 
+                    'likelihood_model'
                     ],
                 ), 
             name = 'get_info')
@@ -152,10 +153,10 @@ def anat_qc_workflow(name="anatMRIQC"):
     # 7. Compute IQMs
     iqmswf = compute_iqms()
     # Reports
-    anat_report_wf = init_anat_report_wf()
+    #anat_report_wf = init_anat_report_wf()
 
-    # Additional morphological changes
-    clean_segs = clean_tissue_segs(omp_nthreads=config.nipype.omp_nthreads)
+    # Additional morphological changess
+    clean_segs = clean_tissue_segs()
     # Connect all nodes
     # fmt: off
     workflow.connect([
@@ -165,9 +166,9 @@ def anat_qc_workflow(name="anatMRIQC"):
         (get_info, clean_segs, [('modality', "inputnode.modality")]),
         (get_info, iqmswf, [("modality", "inputnode.modality")]),
         (inputnode, datalad_get, [("in_file", "in_file")]),
-        (inputnode, anat_report_wf, [
-            ("in_file", "inputnode.name_source"),
-        ]),
+        #(inputnode, anat_report_wf, [
+        #    ("in_file", "inputnode.name_source"),
+        #]),
         (datalad_get, to_ras, [("in_file", "in_file")]),
         (datalad_get, iqmswf, [("in_file", "inputnode.in_file")]),
         (get_info, norm, [('tpl_target_path', "inputnode.tpl_target_path"), 
@@ -211,19 +212,19 @@ def anat_qc_workflow(name="anatMRIQC"):
         (clean_segs, iqmswf, [("outputnode.out_segm", "inputnode.segmentation"),
                        ("outputnode.out_pvms", "inputnode.pvms")]),
         (hmsk, iqmswf, [("outputnode.out_file", "inputnode.headmask")]),
-        (to_ras, anat_report_wf, [("out_file", "inputnode.in_ras")]),
-        (skull_stripping, anat_report_wf, [
-            ("outputnode.out_corrected", "inputnode.inu_corrected"),
-            ("outputnode.out_mask", "inputnode.brainmask")]),
-        (hmsk, anat_report_wf, [("outputnode.out_file", "inputnode.headmask")]),
-        (amw, anat_report_wf, [
-            ("outputnode.air_mask", "inputnode.airmask"),
-            ("outputnode.art_mask", "inputnode.artmask"),
-            ("outputnode.rot_mask", "inputnode.rotmask"),
-        ]),
-        (bts, anat_report_wf, [("outputnode.out_segm", "inputnode.segmentation")]),
-        (iqmswf, anat_report_wf, [("outputnode.noisefit", "inputnode.noisefit")]),
-        (iqmswf, anat_report_wf, [("outputnode.out_file", "inputnode.in_iqms")]),
+        #(to_ras, anat_report_wf, [("out_file", "inputnode.in_ras")]),
+        #(skull_stripping, anat_report_wf, [
+        #    ("outputnode.out_corrected", "inputnode.inu_corrected"),
+        #    ("outputnode.out_mask", "inputnode.brainmask")]),
+        #(hmsk, anat_report_wf, [("outputnode.out_file", "inputnode.headmask")]),
+        #(amw, anat_report_wf, [
+        #    ("outputnode.air_mask", "inputnode.airmask"),
+        #    ("outputnode.art_mask", "inputnode.artmask"),
+        #    ("outputnode.rot_mask", "inputnode.rotmask"),
+        #]),
+        #(bts, anat_report_wf, [("outputnode.out_segm", "inputnode.segmentation")]),
+        #(iqmswf, anat_report_wf, [("outputnode.noisefit", "inputnode.noisefit")]),
+        #(iqmswf, anat_report_wf, [("outputnode.out_file", "inputnode.in_iqms")]),
         (iqmswf, outputnode, [("outputnode.out_file", "out_json")]),
     ])
     # fmt: on
@@ -303,7 +304,7 @@ def spatial_normalization(name="SpatialNormalization"):
                             ),
                             name="syn_hmask_mni2nat")
     from pathlib import Path
-    syn_hmask_mni2nat.inputs.input_image = config.workflow.hmask_MNI
+    syn_hmask_mni2nat.inputs.input_image = Path(config.workflow.hmask_MNI)
     syn_hmask_mni2nat.inputs.invert_transform_flags = [True]
 
     workflow.connect([
@@ -313,7 +314,7 @@ def spatial_normalization(name="SpatialNormalization"):
                                    ("tissue_tpls", "input_image")]),
         (inputnode, syn_hmask_mni2nat, [("in_files", "reference_image")]),
         (syn_norm, syn_hmask_mni2nat, [("out_matrix", "transforms")]),
-        (tpms_std2t1w, outputnode, [("output_image", "out_tpms")])
+        (tpms_std2t1w, outputnode, [("output_image", "out_tpms")]),
         (syn_norm, outputnode, [("out_matrix", "ind2std_xfm")]),
         (syn_hmask_mni2nat, outputnode, [("output_image", "hmask_mni2nat")]), 
     ])
@@ -402,7 +403,7 @@ def init_brain_tissue_segmentation(name="brain_tissue_segmentation"):
     workflow.connect([
         (inputnode, segment, [("in_file", "intensity_images"),
                               ("brainmask", "mask_image"), 
-                              'likelihood_model', 'likelihood_model']),
+                              ('likelihood_model', 'likelihood_model')]),
         (inputnode, format_tpm_names, [('std_tpms', 'in_files')]),
         (format_tpm_names, segment, [(('file_format', _pop), 'prior_image')]),
         (segment, outputnode, [("classified_image", "out_segm"),
@@ -973,7 +974,7 @@ def _get_info(in_file):
     from mriqc import config
     from templateflow.api import get as get_template
     from niworkflows.utils.misc import get_template_specs
-    from mriqc.workflows import _get_mod
+
     """
     Retrieve information for future processing, returns:
         * modality: file modality
@@ -985,6 +986,10 @@ def _get_info(in_file):
         * tissue_tpls: path 
 
     """
+    def _get_mod(in_file):
+        from pathlib import Path
+
+        return Path(in_file).name.rstrip(".gz").rstrip(".nii").split("_")[-1]
 
     #1. Get modality
     modality = _get_mod(in_file)
@@ -1034,5 +1039,5 @@ def _get_info(in_file):
     """
     config.loggers.workflow.info(message)
 
-    return modality, trans_mod, bspline, tpl_target_path, tpl_mask_path, wm_tpl, tissue_tpls, likelihood_model
+    return modality, bspline, tpl_target_path, tpl_mask_path, wm_tpl, tissue_tpls, likelihood_model
 
