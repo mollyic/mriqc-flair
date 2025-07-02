@@ -67,7 +67,7 @@ from mriqc.messages import BUILDING_WORKFLOW
 from mriqc.workflows.utils import get_fwhmx
 from mriqc.workflows.anatomical.output import init_anat_report_wf
 from nipype.interfaces import utility as niu
-from mriqc.workflows.anatomical.clean_segs_ants import clean_tissue_segs
+from mriqc.workflows.anatomical.flair_modules.clean_segs_ants import clean_tissue_segs
 from nipype.pipeline import engine as pe
 
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
@@ -198,7 +198,7 @@ def anat_qc_workflow(name="anatMRIQC"):
                       ("outputnode.ind2std_xfm", "inputnode.ind2std_xfm"), 
                       ("outputnode.hmask_mni2nat", "inputnode.mask_tmpl")]),
         (to_ras, amw, [("out_file", "inputnode.in_file")]),
-        #(skull_stripping, amw, [("outputnode.out_mask", "inputnode.in_mask")]),
+        (skull_stripping, amw, [("outputnode.out_mask", "inputnode.in_mask")]),
         (hmsk, amw, [("outputnode.out_file", "inputnode.head_mask")]),
         (to_ras, iqmswf, [("out_file", "inputnode.in_ras")]),
         (skull_stripping, iqmswf, [("outputnode.out_corrected", "inputnode.inu_corrected"),
@@ -214,13 +214,13 @@ def anat_qc_workflow(name="anatMRIQC"):
         (hmsk, iqmswf, [("outputnode.out_file", "inputnode.headmask")]),
         (to_ras, anat_report_wf, [("out_file", "inputnode.in_ras")]),
         (skull_stripping, anat_report_wf, [
-           ("outputnode.out_corrected", "inputnode.inu_corrected"),
-           ("outputnode.out_mask", "inputnode.brainmask")]),
+            ("outputnode.out_corrected", "inputnode.inu_corrected"),
+            ("outputnode.out_mask", "inputnode.brainmask")]),
         (hmsk, anat_report_wf, [("outputnode.out_file", "inputnode.headmask")]),
         (amw, anat_report_wf, [
-           ("outputnode.air_mask", "inputnode.airmask"),
-           ("outputnode.art_mask", "inputnode.artmask"),
-           ("outputnode.rot_mask", "inputnode.rotmask"),
+            ("outputnode.air_mask", "inputnode.airmask"),
+            ("outputnode.art_mask", "inputnode.artmask"),
+            ("outputnode.rot_mask", "inputnode.rotmask"),
         ]),
         (bts, anat_report_wf, [("outputnode.out_segm", "inputnode.segmentation")]),
         (iqmswf, anat_report_wf, [("outputnode.noisefit", "inputnode.noisefit")]),
@@ -327,13 +327,13 @@ def spatial_normalization(name="SpatialNormalization"):
 
     # Project hmask in standard space into native space 
     hmask_mni2std = pe.Node(
-                            ApplyTransforms(
-                                dimension=3,
-                                default_value=0,
-                                interpolation="Gaussian",  # Choose the appropriate interpolation method
-                                float=config.execution.ants_float,
-                            ),
-                            name="hmask_mni2std")
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            interpolation="Gaussian",  # Choose the appropriate interpolation method
+            float=config.execution.ants_float,
+        ),
+        name="hmask_mni2std")
     from pathlib import Path
     #hmask_mni2std.inputs.input_image = Path(config.workflow.hmask_MNI)
     hmask_mni2std.inputs.input_image = get_template(
@@ -707,6 +707,7 @@ def airmsk_wf(name="AirMaskWorkflow"):
         niu.IdentityInterface(
             fields=[
                 "in_file",
+                "in_mask",
                 "head_mask",
                 "ind2std_xfm",
             ]
