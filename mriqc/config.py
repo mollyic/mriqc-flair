@@ -536,8 +536,8 @@ class workflow(_Config):
     """TemplateFlow ID of template used for the anatomical processing."""
     mni_resolution = 2
     """Manual headmask"""
-    hmask_MNI = Path.cwd() / "mriqc" / "templates" / "tpl-MNI152NLin2009cAsym_res-02_desc-head_mask"
-    hmask_MNI = f"{os.getcwd()}/mriqc/templates/tpl-MNI152Lin_res-02_desc-head_mask.nii.gz"
+    #hmask_MNI = Path.cwd() / "mriqc" / "templates" / "tpl-MNI152NLin2009cAsym_res-02_desc-head_mask"
+    #hmask_MNI = f"{os.getcwd()}/mriqc/templates/tpl-MNI152Lin_res-02_desc-head_mask.nii.gz"
     """Path to headmask template """
 
 class loggers:

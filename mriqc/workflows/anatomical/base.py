@@ -335,10 +335,12 @@ def spatial_normalization(name="SpatialNormalization"):
                             ),
                             name="hmask_mni2std")
     from pathlib import Path
+    #hmask_mni2std.inputs.input_image = Path(config.workflow.hmask_MNI)
     hmask_mni2std.inputs.input_image = get_template(
         template='MNI152NLin2009cAsym',
         desc='head',
         suffix='mask',
+        extension='nii.gz', 
         resolution ='2'
         )
     hmask_mni2std.inputs.invert_transform_flags = [True]
