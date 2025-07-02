@@ -283,7 +283,7 @@ class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
 
 def spatial_normalization(name="SpatialNormalization"):
     """Create a simplied workflow to perform spatial normalization with Ants QuickSyn."""
-
+    from templateflow.api import get as get_template
     # Define workflow interface
     workflow = pe.Workflow(name=name)    
     inputnode = pe.Node(
@@ -326,17 +326,22 @@ def spatial_normalization(name="SpatialNormalization"):
     # fmt: off
 
     # Project hmask in standard space into native space 
-    syn_hmask_mni2nat = pe.Node(
+    hmask_mni2std = pe.Node(
                             ApplyTransforms(
                                 dimension=3,
                                 default_value=0,
                                 interpolation="Gaussian",  # Choose the appropriate interpolation method
                                 float=config.execution.ants_float,
                             ),
-                            name="syn_hmask_mni2nat")
+                            name="hmask_mni2std")
     from pathlib import Path
-    syn_hmask_mni2nat.inputs.input_image = Path(config.workflow.hmask_MNI)
-    syn_hmask_mni2nat.inputs.invert_transform_flags = [True]
+    hmask_mni2std.inputs.input_image = get_template(
+        template='MNI152NLin2009cAsym',
+        desc='head',
+        suffix='mask',
+        resolution ='2'
+        )
+    hmask_mni2std.inputs.invert_transform_flags = [True]
 
     workflow.connect([
         (inputnode, syn_norm, [("in_files", "moving_image"), 
@@ -344,12 +349,12 @@ def spatial_normalization(name="SpatialNormalization"):
         (syn_norm, tpms_std2t1w, [("out_matrix", "transforms")]),
         (inputnode, tpms_std2t1w, [("in_files", "reference_image"),
                                    ("tissue_tpls", "input_image")]),
-        (inputnode, syn_hmask_mni2nat, [("in_files", "reference_image")]),
-        (syn_norm, syn_hmask_mni2nat, [("out_matrix", "transforms")]),
+        (inputnode, hmask_mni2std, [("in_files", "reference_image")]),
+        (syn_norm, hmask_mni2std, [("out_matrix", "transforms")]),
         (tpms_std2t1w, outputnode, [("output_image", "out_tpms")]),
         (syn_norm, outputnode, [("out_matrix", "ind2std_xfm")]),
         (syn_norm, outputnode, [("out_report", "out_report")]),
-        (syn_hmask_mni2nat, outputnode, [("output_image", "hmask_mni2nat")]), 
+        (hmask_mni2std, outputnode, [("output_image", "hmask_mni2nat")]), 
     ])
     # fmt: on
 
