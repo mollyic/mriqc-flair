@@ -244,12 +244,3 @@ def generate_filename(in_file, dirname=None, suffix="", extension=None):
         suffix = f"_{suffix}"
 
     return dirname / f"{stem}{suffix}{extension}"
-
-def _max_tissue(modality, inlist):
-    max_tissue = {'T1w'     : {'tissue':'WM', 'file': "segment_03"}, 
-                  'T2w'     : {'tissue':'CSF', 'file': "segment_01"}, 
-                  'FLAIR'   : {'tissue':'GM', 'file': "segment_02"}} 
-
-    tissue = max_tissue[modality]['tissue']
- 
-    return [f for f in inlist if tissue in f][0]

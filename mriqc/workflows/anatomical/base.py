@@ -72,7 +72,6 @@ from nipype.pipeline import engine as pe
 
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from templateflow.api import get as get_template
-from mriqc.config import INI
 
 
 def anat_qc_workflow(name="anatMRIQC"):
@@ -89,6 +88,7 @@ def anat_qc_workflow(name="anatMRIQC"):
             wf = anat_qc_workflow()
 
     """
+
     dataset = config.workflow.inputs.get("T1w", []) + config.workflow.inputs.get("T2w", []) + config.workflow.inputs.get("FLAIR", [])
 
     message = BUILDING_WORKFLOW.format(
@@ -153,7 +153,7 @@ def anat_qc_workflow(name="anatMRIQC"):
     # 7. Compute IQMs
     iqmswf = compute_iqms()
     # Reports
-    #anat_report_wf = init_anat_report_wf()
+    anat_report_wf = init_anat_report_wf()
 
     # Additional morphological changess
     clean_segs = clean_tissue_segs()
@@ -166,9 +166,9 @@ def anat_qc_workflow(name="anatMRIQC"):
         (get_info, clean_segs, [('modality', "inputnode.modality")]),
         (get_info, iqmswf, [("modality", "inputnode.modality")]),
         (inputnode, datalad_get, [("in_file", "in_file")]),
-        #(inputnode, anat_report_wf, [
-        #    ("in_file", "inputnode.name_source"),
-        #]),
+        (inputnode, anat_report_wf, [
+            ("in_file", "inputnode.name_source"),
+        ]),
         (datalad_get, to_ras, [("in_file", "in_file")]),
         (datalad_get, iqmswf, [("in_file", "inputnode.in_file")]),
         (get_info, norm, [('tpl_target_path', "inputnode.tpl_target_path"), 
@@ -186,14 +186,14 @@ def anat_qc_workflow(name="anatMRIQC"):
             ("outputnode.out_mask", "inputnode.in_mask")]),
         (norm, bts, [("outputnode.out_tpms", "inputnode.std_tpms")]),
         (bts, clean_segs, [
-            ("outputnode.out_segm", "inputnode.classified_image"), 
-            ("outputnode.out_pvms", "inputnode.posteriors")]),
+            ("outputnode.out_segm", "inputnode.segmentation"), 
+            ("outputnode.out_pvms", "inputnode.pvms")]),
         (norm, amw, [
             ("outputnode.ind2std_xfm", "inputnode.ind2std_xfm")]),
         (norm, iqmswf, [
             ("outputnode.out_tpms", "inputnode.std_tpms")]),
-        # (norm, anat_report_wf, ([
-        #     ("outputnode.out_report", "inputnode.mni_report")])),
+        (norm, anat_report_wf, ([
+            ("outputnode.out_report", "inputnode.mni_report")])),
         (norm, hmsk, [("outputnode.out_tpms", "inputnode.in_tpms"), 
                       ("outputnode.ind2std_xfm", "inputnode.ind2std_xfm"), 
                       ("outputnode.hmask_mni2nat", "inputnode.mask_tmpl")]),
@@ -212,19 +212,19 @@ def anat_qc_workflow(name="anatMRIQC"):
         (clean_segs, iqmswf, [("outputnode.out_segm", "inputnode.segmentation"),
                        ("outputnode.out_pvms", "inputnode.pvms")]),
         (hmsk, iqmswf, [("outputnode.out_file", "inputnode.headmask")]),
-        #(to_ras, anat_report_wf, [("out_file", "inputnode.in_ras")]),
-        #(skull_stripping, anat_report_wf, [
-        #    ("outputnode.out_corrected", "inputnode.inu_corrected"),
-        #    ("outputnode.out_mask", "inputnode.brainmask")]),
-        #(hmsk, anat_report_wf, [("outputnode.out_file", "inputnode.headmask")]),
-        #(amw, anat_report_wf, [
-        #    ("outputnode.air_mask", "inputnode.airmask"),
-        #    ("outputnode.art_mask", "inputnode.artmask"),
-        #    ("outputnode.rot_mask", "inputnode.rotmask"),
-        #]),
-        #(bts, anat_report_wf, [("outputnode.out_segm", "inputnode.segmentation")]),
-        #(iqmswf, anat_report_wf, [("outputnode.noisefit", "inputnode.noisefit")]),
-        #(iqmswf, anat_report_wf, [("outputnode.out_file", "inputnode.in_iqms")]),
+        (to_ras, anat_report_wf, [("out_file", "inputnode.in_ras")]),
+        (skull_stripping, anat_report_wf, [
+           ("outputnode.out_corrected", "inputnode.inu_corrected"),
+           ("outputnode.out_mask", "inputnode.brainmask")]),
+        (hmsk, anat_report_wf, [("outputnode.out_file", "inputnode.headmask")]),
+        (amw, anat_report_wf, [
+           ("outputnode.air_mask", "inputnode.airmask"),
+           ("outputnode.art_mask", "inputnode.artmask"),
+           ("outputnode.rot_mask", "inputnode.rotmask"),
+        ]),
+        (bts, anat_report_wf, [("outputnode.out_segm", "inputnode.segmentation")]),
+        (iqmswf, anat_report_wf, [("outputnode.noisefit", "inputnode.noisefit")]),
+        (iqmswf, anat_report_wf, [("outputnode.out_file", "inputnode.in_iqms")]),
         (iqmswf, outputnode, [("outputnode.out_file", "out_json")]),
     ])
     # fmt: on
@@ -251,10 +251,39 @@ def anat_qc_workflow(name="anatMRIQC"):
 
     return workflow
 
+# Class to run report functionality 
+import niworkflows.interfaces.reportlets.base as nrb
+from nipype.interfaces.ants import (RegistrationSynQuick)
+from nipype.interfaces.ants.registration import (RegistrationSynQuickOutputSpec, RegistrationSynQuickInputSpec)
+from nipype.interfaces.mixins import reporting
+class _RegistrationSynQuickInputSpecRPT(nrb._SVGReportCapableInputSpec, RegistrationSynQuickInputSpec):
+    pass
+
+class _RegistrationSynQuickOutputSpecRPT(reporting.ReportCapableOutputSpec, RegistrationSynQuickOutputSpec):
+    pass
+class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
+    """Report generating version of ANTs RegistrationSynQuick interface: 
+        *derived from niworkflows.interfaces.reportlets.registration."""
+    input_spec = _RegistrationSynQuickInputSpecRPT
+    output_spec = _RegistrationSynQuickOutputSpecRPT
+    def _post_run_hook(self, runtime):
+        # Get arguments from ANTS
+        self._fixed_image = self.inputs.fixed_image
+        if isinstance(self._fixed_image, (list, tuple)):
+            self._fixed_image = self.inputs.fixed_image[0]
+        
+        self._moving_image = self.aggregate_outputs(runtime=runtime).warped_image
+        config.loggers.workflow.info(
+            "Report - setting fixed (%s) and moving (%s) images",
+            self._fixed_image,
+            self._moving_image,
+        )
+
+        return super()._post_run_hook(runtime)
 
 def spatial_normalization(name="SpatialNormalization"):
     """Create a simplied workflow to perform spatial normalization with Ants QuickSyn."""
-    from nipype.interfaces.ants import (RegistrationSynQuick)
+
     # Define workflow interface
     workflow = pe.Workflow(name=name)    
     inputnode = pe.Node(
@@ -270,11 +299,13 @@ def spatial_normalization(name="SpatialNormalization"):
         name="outputnode",
     )
     
+
     #a. RegistrationSynQuick
     syn_norm = pe.Node(
-        RegistrationSynQuick(
+        RegistrationSynQuickRPT(
             dimension=3,
             transform_type = "b",
+            generate_report=True
         ),
         name="SpatialNormalization",
     )
@@ -317,6 +348,7 @@ def spatial_normalization(name="SpatialNormalization"):
         (syn_norm, syn_hmask_mni2nat, [("out_matrix", "transforms")]),
         (tpms_std2t1w, outputnode, [("output_image", "out_tpms")]),
         (syn_norm, outputnode, [("out_matrix", "ind2std_xfm")]),
+        (syn_norm, outputnode, [("out_report", "out_report")]),
         (syn_hmask_mni2nat, outputnode, [("output_image", "hmask_mni2nat")]), 
     ])
     # fmt: on
@@ -523,8 +555,7 @@ def compute_iqms(name="ComputeIQMs"):
                                ("rotmask", "rot_msk"),
                                ("segmentation", "in_segm"),
                                ("pvms", "in_pvms"),
-                               ("std_tpms", "mni_tpms"),
-                               ("hatmask", "hat_msk")]),
+                               ("std_tpms", "mni_tpms")]),
         (inputnode, fwhm, [("in_ras", "in_file"),
                            ("brainmask", "mask")]),
         (homog, measures, [("out_file", "in_noinu")]),
@@ -561,7 +592,7 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
                                       "in_tpms", "mask_tmpl", "ind2std_xfm"]), name="inputnode"
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["out_file", "out_denoised", "out_denoised_msk"]), name="outputnode"
+        niu.IdentityInterface(fields=["out_file", "out_denoised", "out_crop_hmask", "out_crop_hmask_mni2std"]), name="outputnode"
     )
 
     def _select_wm(inlist):
@@ -588,7 +619,7 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
     )
     thresh = pe.Node(
         niu.Function(
-            input_names=["in_file", "skinmask", "aniso", "thresh"],
+            input_names=["in_file", "brainmask", "aniso", "thresh"],
             output_names=["out_file"],
             function=gradient_threshold,
         ),
@@ -601,24 +632,30 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
         thresh.inputs.thresh = 4.0
 
     apply_mask = pe.Node(ApplyMask(), name="apply_mask")
-    review = pe.Node(HeadMask_review(),name = "ReviewMask",)
+    review = pe.Node(
+        HeadMask_review(),
+        name = "ReviewMask",            
+        execution={"keep_inputs": True, "remove_unnecessary_outputs": False}
+        )
 
     # fmt: off
     workflow.connect([
         (inputnode, enhance, [("in_file", "in_file"),
                               (("in_tpms", _select_wm), "wm_tpm")]),
-        (inputnode, thresh, [("skinmask", "skinmask")]),
+        (inputnode, thresh, [("skinmask", "brainmask")]),
         (inputnode, gradient, [("skinmask", "brainmask")]),
         (inputnode, apply_mask, [("brainmask", "in_mask")]),
-        (inputnode, review, [("mask_tmpl", "hmask_tmpl"),
-                             ("ind2std_xfm", "ind2std_xfm")]),        
         (enhance, gradient, [("out_file", "in_file")]),
         (gradient, thresh, [("out_file", "in_file")]),
-        (thresh, review, [("out_file", "hmask")]),
         (enhance, apply_mask, [("out_file", "in_file")]),
-        (review, outputnode, [("out_file", "out_file")]),
-        (enhance, outputnode, [("out_file", "out_denoised")]),
-        (apply_mask, outputnode,[("out_file", "out_denoised_msk")]),
+        (thresh, review, [("out_file", "hmask")]),
+        (inputnode, review, [("mask_tmpl", "hmask_mni2std"),
+                             ("ind2std_xfm", "ind2std_xfm")]),   
+        (review, outputnode, [("out_file", "out_file"), 
+                              ("out_crop_hmask", "out_crop_hmask"),
+                              ("out_crop_hmask_mni2std", "out_crop_hmask_mni2std"),
+                              ]),
+        (apply_mask, outputnode,[("out_file", "out_denoised")]),
     ])
     # fmt: on
 
@@ -821,6 +858,7 @@ def _binarize(in_file, threshold=0.5, out_file=None):
     nb.Nifti1Image(data.astype(np.uint8), nii.affine, hdr).to_filename(out_file)
     return out_file
 
+
 def _enhance(in_file, wm_tpm, out_file=None):
     import numpy as np
     import nibabel as nb
@@ -874,8 +912,7 @@ def image_gradient(in_file, brainmask, sigma=3.0, out_file=None):
     return out_file
 
 
-def gradient_threshold(in_file, skinmask, percentile=80, out_file=None, aniso=False, pad = 100, 
-                       close_iter =30, erode_iter = 1):
+def gradient_threshold(in_file, brainmask, thresh=15.0, out_file=None, aniso=False):
     """Compute a threshold from the histogram of the magnitude gradient image"""
     import nibabel as nb
     import numpy as np
@@ -902,19 +939,13 @@ def gradient_threshold(in_file, skinmask, percentile=80, out_file=None, aniso=Fa
     hdr.set_data_dtype(np.uint8)
 
     data = imnii.get_fdata(dtype=np.float32)
-    #data[np.bool_(bmask)] = 100 #exaggerate regions within mask by making them 100
+
     mask = np.zeros_like(data, dtype=np.uint8)
-    thresh = np.percentile(data[data != 0], percentile)
     mask[data > thresh] = 1
+    mask = sim.binary_closing(mask, struct, iterations=2).astype(np.uint8)
+    mask = sim.binary_erosion(mask, sim.generate_binary_structure(3, 2)).astype(np.uint8)
 
-    bmask = nb.load(skinmask).get_fdata()
-    #Add padding
-    bmask = np.pad(bmask, pad, mode='constant', constant_values=0)
-    mask = np.pad(mask, pad, mode='constant', constant_values=0)
-    mask = sim.binary_closing(mask, struct, iterations=close_iter).astype(np.uint8)
-    mask = sim.binary_erosion(mask, sim.generate_binary_structure(3, 2), iterations=erode_iter).astype(np.uint8)
-
-    segdata = np.asanyarray(bmask) > 0
+    segdata = np.asanyarray(nb.load(brainmask).dataobj) > 0
     segdata = sim.binary_dilation(segdata, struct, iterations=2, border_value=1).astype(np.uint8)
     mask[segdata] = 1
 
@@ -929,26 +960,7 @@ def gradient_threshold(in_file, skinmask, percentile=80, out_file=None, aniso=Fa
             artmsk[label_im == label] = 1
 
     mask = sim.binary_fill_holes(mask, struct).astype(np.uint8)  # pylint: disable=no-member
-    mask = mask[pad:-pad, pad:-pad, pad:-pad] #remove padding
-    
-    filled = 1
-    # Ensures mask is anchored to  bottom boundary: if the bottom-most slice already contains any non-zero voxel set to 1
-    if np.any(mask[:, :, 0]) == 1:
-        mask[:, :, 0] = 1 
 
-    else:
-        # anchors the mask to the bottom of the image for stability during fill operations
-        for row_idx in range(mask.shape[2]):    
-            if np.all(mask[:, :, row_idx] == 0): #find the first slice from the bottom where all the voxels == 0
-                filled +=1
-                mask[:, :, row_idx] =1 #fill row with ones
-            else:
-                break # Stop finding rows when a non-empty row is encountered
-        
-    mask = sim.binary_fill_holes(mask).astype(np.uint8)                             #fill holes between bottom of image and head mask
-    mask = mask[:, :, filled:]                                                      #crop filled lines
-    mask = np.pad(mask, [(0, 0), (0, 0), (filled, 0)], mode='constant', constant_values=0)
-    
     out_file = out_file or str(generate_filename(in_file, suffix="gradmask").absolute())
     nb.Nifti1Image(mask, imnii.affine, hdr).to_filename(out_file)
     return out_file
@@ -977,15 +989,22 @@ def _get_info(in_file):
     from niworkflows.utils.misc import get_template_specs
 
     """
-    Retrieve information for future processing, returns:
-        * modality: file modality
-        * bspline: bspline distance for INU correction
-        * trans_mod: (NOT IN USE) Adjusted modality as patial normalisation function does not accept 'FLAIR' convert to T2w
-        * tpl_target_path: path to MNI template
-        * tpl_mask_path: path to MNI template brain mask 
-        * wm_tpl: path to MNI template WM probseg 
-        * tissue_tpls: path 
+    Extracts image metadata and appropriate template resources for downstream anatomical processing
 
+    Parameters
+    ----------
+    in_file : Path to a BIDS-compatible anatomical image file (e.g., T1w, T2w, FLAIR)
+
+    Returns
+    -------
+    modality : Extracted modality from filename
+    bspline : B-spline grid distance for N4 bias field correction (400 for FLAIR, 200 otherwise)
+    tpl_target_path : Path to the selected MNI template image
+    tpl_mask_path : Path to the binary brain mask of the selected MNI template.
+    wm_tpl : Path to the white matter probabilistic segmentation map.
+    tissue_tpls : List of paths to probabilistic segmentation maps for CSF, GM, and WM.
+    likelihood_model : Tissue segmentation model type for Atropos (e.g., 'HistogramParzenWindows' for FLAIR, 
+        'Gaussian' for others).
     """
     def _get_mod(in_file):
         from pathlib import Path
@@ -994,10 +1013,10 @@ def _get_info(in_file):
 
     #1. Get modality
     modality = _get_mod(in_file)
-    bspline = 400 if modality =='FLAIR' else 200
-    tpl_id, trans_mod =('GG853', 'T2w') if modality == 'FLAIR' else (config.workflow.template_id, modality)
 
-    #2. Get template ID, bspline, trans_mod
+    #2. Get template ID, bspline
+    bspline = 400 if modality =='FLAIR' else 200
+    tpl_id ='GG853' if modality == 'FLAIR' else config.workflow.template_id
     template_spec = {}
     template_spec["suffix"] = template_spec.get("suffix", modality)
 
@@ -1024,13 +1043,12 @@ def _get_info(in_file):
     #6. WM template                                         
     wm_tpl= next(tissue_tpl for tissue_tpl in tissue_tpls if 'label-WM' in tissue_tpl)
 
-
     #7. Atropos segmentation likelihood_model
     likelihood_model = 'HistogramParzenWindows' if modality =='FLAIR' else 'Gaussian'
+    
     message = f"""Modality: {modality}    
         * in_file:                  {in_file}
         * tpl_id:                   {tpl_id}
-        * trans_mod:                {trans_mod}
         * bspline:                  {bspline}
         * tpl_target_path:          {tpl_target_path}
         * common_spec:              {common_spec}

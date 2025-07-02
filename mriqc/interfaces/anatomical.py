@@ -60,7 +60,6 @@ class StructuralQCInputSpec(BaseInterfaceInputSpec):
     in_bias = File(exists=True, mandatory=True, desc="bias file")
     head_msk = File(exists=True, mandatory=True, desc="head mask")
     air_msk = File(exists=True, mandatory=True, desc="air mask")
-    hat_msk = File(exists=True, mandatory=True, desc="hat_msk")
     rot_msk = File(exists=True, mandatory=True, desc="rotation mask")
     artifact_msk = File(exists=True, mandatory=True, desc="air mask")
     in_pvms = InputMultiPath(
@@ -133,7 +132,6 @@ class StructuralQC(SimpleInterface):
         artdata = np.asanyarray(nb.load(self.inputs.artifact_msk).dataobj).astype(np.uint8)
 
         headdata = np.asanyarray(nb.load(self.inputs.head_msk).dataobj).astype(np.uint8)
-        hatdata = np.asanyarray(nb.load(self.inputs.hat_msk).dataobj).astype(np.uint8)
         if np.sum(headdata > 0) < 100:
             raise RuntimeError(
                 "Detected less than 100 voxels belonging to the head mask. "
@@ -406,7 +404,7 @@ class Harmonize(SimpleInterface):
     output_spec = HarmonizeOutputSpec
 
     def _run_interface(self, runtime):
-        # Reduced confidence threshold for FLAIR WM binary mask selection
+        # Reduced confidence threshold for FLAIR WM pvm mask selection
         confidence = 0.7 if self.inputs.modality == "FLAIR" else 0.9
 
         in_file = nb.load(self.inputs.in_file)
@@ -485,22 +483,39 @@ class RotationMask(SimpleInterface):
         
 class _HeadReviewInputSpec(BaseInterfaceInputSpec):
     hmask = File(exists=True, mandatory=True, desc="Gradient magnitude headmask for review")
-    hmask_tmpl = File(exists=True, mandatory=True, desc="MNI template for headmask")
-    mni_floor = traits.Tuple((0.0, 0.0, -40.0),
-                             types=(traits.Float, traits.Float, traits.Float),
-                             usedefault=True,
-                             desc="position of the top of the inion in standard coordinates"
-                             )
-    ind2std_xfm = File(exists=True, mandatory=True, desc="individual to standard affine transform")
-
+    hmask_mni2std = File(exists=True, mandatory=True, desc="MNI headmask transformed into subject space")
+    mni_floor = traits.Tuple(
+        (0.0, 0.0, -40.0), 
+        types=(traits.Float, traits.Float, traits.Float), 
+        usedefault=True, 
+        desc="MNI coordinate defining inferior cutoff")
+    ind2std_xfm = File(exists=True, mandatory=True, desc="Affine transform from subject to standard space")
+    artifact_thresh = traits.Float(150.0, usedefault=True, desc="volume threshold identify upper-mask artifacts")
 
 class _HeadReviewOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='output reviewed mask')
+    out_crop_hmask = File(exists=True, desc='output reviewed mask')
+    out_crop_hmask_mni2std = File(exists=True, desc='output reviewed mask')
 
 class HeadMask_review(SimpleInterface):
-    """Compare the outputted mask size to the MNI hmask 
-        - if the mask greatly exceeds the size of the MNI it's likely predominantly artifact
-        - In this case mask the top half of the image with the MNI mask """
+    """
+    Evaluate subjects headmask against a reference mask derived from the MNI template.
+
+    If headmask volume exceeds reference mask by a specified %, suggesting artifact,
+    the upper portion of the image is masked using the MNI-transformed template.
+
+    Inputs
+    ------
+    hmask : Gradient magnitude headmask for review
+    hmask_mni2std : MNI template headmask transformed into subject space
+    mni_floor : MNI coordinate defining inferior cutoff
+    ind2std_xfm : affine transform from subject to standard space (ITK format)
+    artifact_thresh : volume threshold for flagging upper-mask artifacts (default: 150.0)
+
+    Outputs
+    -------
+    out_file : reviewed and optionally corrected subject headmask
+    """
     
     input_spec = _HeadReviewInputSpec
     output_spec = _HeadReviewOutputSpec
@@ -511,116 +526,70 @@ class HeadMask_review(SimpleInterface):
         import nibabel as nib
         import numpy as np
         from mriqc.workflows.utils import generate_filename
+        from mriqc import config 
 
-        h_data = nib.load(self.inputs.hmask)
-        hmask_data = h_data.get_fdata()
-        hmask_tmpl_data = nib.load(self.inputs.hmask_tmpl).get_fdata()
-        hdr = h_data.header.copy()
+        hmask_img = nib.load(self.inputs.hmask)
+        hdr = hmask_img.header.copy()
         hdr.set_data_dtype(np.uint8)
         
-        #find bottom of mni
+        hmask = hmask_img.get_fdata()
+        hmask_mni2std = (nib.load(self.inputs.hmask_mni2std).get_fdata() > 0).astype(np.uint8)
+
+        # Load subject-to-MNI transform and compute inverse of subject affine
         xfm = Affine.from_filename(self.inputs.ind2std_xfm, fmt="itk")
-        ras2ijk = np.linalg.inv(h_data.affine)
+        ras2ijk = np.linalg.inv(hmask_img.affine)
+
+        # Map MNI floor coordinate into subject voxel space        
         mni_floor = apply_affine(ras2ijk, xfm.map(self.inputs.mni_floor))[0]
 
-        #crop files at bottom
-        crop_mask = hmask_data[:, :, int(mni_floor[2]): ]
-        crop_tmpl = hmask_tmpl_data[:, :, int(mni_floor[2]): ] 
-        
+        # Crop both masks at the z-floor        
+        crop_hmask = hmask[:, :, int(mni_floor[2]): ]
+        crop_hmask_mni2std = hmask_mni2std[:, :, int(mni_floor[2]): ] 
 
-        # check voxel size 
-        test = crop_mask[crop_mask !=0].size
-        ref = crop_tmpl[crop_tmpl !=0].size
-        print(f'Percent: {test/ref *100}%')
-        #if gradient magnitude mask is 1.5x larger assume it's predominantly artifact
-        if (test/ref *100) > 150: 
-            hmask_unenhanced = nib.load(self.inputs.hmask.replace('_hmask','')).get_fdata()
-            out_file = str(generate_filename(self.inputs.hmask.replace('_hmask_','_under'), suffix="MNIcrop").absolute())
-            hmask_unenhanced[:, :, int(mni_floor[2]):] *= hmask_tmpl_data[:, :, int(mni_floor[2]): ]
-            nib.Nifti1Image(hmask_unenhanced, h_data.affine, hdr).to_filename(out_file)
+
+        #Testing output
+        out_crop_hmask = str(generate_filename(
+                self.inputs.hmask, 
+                suffix="out_crop_hmask").absolute()
+                )
+        nib.Nifti1Image(crop_hmask, hmask_img.affine, hdr).to_filename(out_crop_hmask)
+        out_crop_hmask_mni2std = str(generate_filename(
+                self.inputs.hmask, 
+                suffix="out_crop_hmask_mni2std").absolute()
+                )
+        nib.Nifti1Image(crop_hmask_mni2std, hmask_img.affine, hdr).to_filename(out_crop_hmask_mni2std)
+        config.loggers.workflow.info(f"Saving cropped mask to: {out_crop_hmask}")
+        # Count non-zero voxels in subject and template upper masks        
+        n_hmask = crop_hmask[crop_hmask !=0].size
+        n_hmask_mni2std = crop_hmask_mni2std[crop_hmask_mni2std !=0].size
+        overlap = (n_hmask / n_hmask_mni2std) * 100
+        config.loggers.workflow.info(f"HeadMaskReview: subject/template voxel ratio above floor = {overlap:.2f}%")
+
+        # If subject upper-mask is larger than threshold percentage, apply MNI mask        
+        if overlap != self.inputs.artifact_thresh: 
+            hmask_mnicrop_path = self.inputs.hmask.replace('_hmask','')
+            hmask_mnicrop = nib.load(hmask_mnicrop_path).get_fdata()
+        
+            # Apply MNI-derived mask to upper portion of image
+            hmask_mnicrop[:, :, int(mni_floor[2]):] *= hmask_mni2std[:, :, int(mni_floor[2]): ]
+
+            out_file = str(generate_filename(
+                self.inputs.hmask, 
+                suffix="MNIcrop").absolute()
+                )
+            
+            config.loggers.workflow.info(f"HeadMaskReview: hmask_mnicrop_path = {hmask_mnicrop_path}%")
+
+            nib.Nifti1Image(hmask_mnicrop, hmask_img.affine, hdr).to_filename(out_file)
         else:
             out_file = self.inputs.hmask
         
         self._results["out_file"] = out_file
-        
+        self._results["out_crop_hmask"] = out_crop_hmask
+        self._results["out_crop_hmask_mni2std"] = out_crop_hmask_mni2std
+
         return runtime
     
-
-
-class _HeadMeasureInputSpec(BaseInterfaceInputSpec):
-    hmask = File(exists=True, mandatory=True, desc="Gradient magnitude headmask for review")
-    glabella_xyz = traits.Tuple((0.0, 90.0, -14.0),
-                                types=(traits.Float, traits.Float, traits.Float),
-                                usedefault=True,
-                                desc="position of the top of the glabella in standard coordinates"
-                                )
-    inion_xyz = traits.Tuple((0.0, -120.0, -80.0),
-                             types=(traits.Float, traits.Float, traits.Float),
-                             usedefault=True,
-                             desc="position of the top of the inion in standard coordinates"
-                             )
-    ind2std_xfm = File(exists=True, mandatory=True, desc="individual to standard affine transform")
-
-
-class _HeadMeasureOutputSpec(TraitedSpec):
-    out_file = File(exists=True, desc='output reviewed mask')
-
-
-
-class HeadMeasure(SimpleInterface):
-    """Compare the outputted mask size to the MNI hmask 
-        - if the mask greatly exceeds the size of the MNI it's likely predominantly artifact
-        - In this case mask the top half of the image with the MNI mask """
-    
-    input_spec = _HeadMeasureInputSpec
-    output_spec = _HeadMeasureOutputSpec
-    
-    def _run_interface(self, runtime):  # pylint: disable=R0914,E1101
-        from nibabel.affines import apply_affine
-        from nitransforms.linear import Affine
-        import nibabel as nib
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import os 
-
-        h_data = nib.load(self.inputs.hmask)
-        hmask_data = h_data.get_fdata()
-        hdr = h_data.header.copy()
-        hdr.set_data_dtype(np.uint8)
-        
-        #find bottom of mni
-        xfm = Affine.from_filename(self.inputs.ind2std_xfm, fmt="itk")
-        ras2ijk = np.linalg.inv(h_data.affine)
-        glabella_ijk, inion_ijk = (apply_affine(
-                                        ras2ijk, 
-                                        xfm.map([self.inputs.glabella_xyz,
-                                                 self.inputs.inion_xyz])))
-
-        # print(f'File: {self.inputs.hmask}')
-        # print(f'Glabella: {glabella_ijk}')
-        # print(f'Glabella 1: {[glabella_ijk[1]]}')
-        # print(f'Glabella 2: {[glabella_ijk[2]]}')
-
-
-        # print(f'Inion: {inion_ijk}')
-        # print(f'Inion 1: {[inion_ijk[1]]}')
-        # print(f'Glabella 2: {[inion_ijk[2]]}\n')
-
-
-        slice_idx = hmask_data.shape[0] //2
-
-        #plt.imshow(hmask_data[slice_idx, :, :], cmap='gray', origin='upper')
-        #plt.plot()
-        # Overlay points for Glabella and Inion
-        #fig.scatter([glabella_ijk[1]], [glabella_ijk[2]], c='red', marker='o', label='Glabella')
-        #fig.scatter([inion_ijk[1]], [inion_ijk[2]], c='blue', marker='o', label='Inion')
-
-        #plt.savefig(f"SLICE_{os.path.basename(self.inputs.hmask).replace('.nii.gz', '')}")
-
-        #plt.show(block=True)
-        #self._results["out_file"] = out_file
-        #plt.waitforbuttonpress()
-        return runtime
 
 def artifact_mask(imdata, airdata, distance, zscore=10.0):
     """Compute a mask of artifacts found in the air region."""
