@@ -136,10 +136,6 @@ ATROPOS_MODELS = {"T1w": OrderedDict([("csf", 1), ("gm", 2), ("wm", 3)]),
                     "T2w": OrderedDict([("csf", 3), ("gm", 2), ("wm", 1)]),
                     "FLAIR": OrderedDict([("csf", 1), ("gm", 2), ("wm", 3)])}
 
-from configparser import ConfigParser
-INI = ConfigParser()
-INI.read('config.ini')
-
 DEFAULT_MEMORY_MIN_GB = 0.01
 DSA_MESSAGE = """\
 IMPORTANT: Anonymized quality metrics (IQMs) will be submitted to MRIQC's metrics \
@@ -540,8 +536,9 @@ class workflow(_Config):
     """TemplateFlow ID of template used for the anatomical processing."""
     mni_resolution = 2
     """Manual headmask"""
-    hmask_MNI = Path.cwd() / "mriqc" / "templates" / "headmask_MNI.nii.gz"
-    """Path to headmask template: """
+    hmask_MNI = Path.cwd() / "mriqc" / "templates" / "tpl-MNI152NLin2009cAsym_res-02_desc-head_mask"
+    hmask_MNI = f"{os.getcwd()}/mriqc/templates/tpl-MNI152Lin_res-02_desc-head_mask.nii.gz"
+    """Path to headmask template """
 
 class loggers:
     """Keep loggers easily accessible (see :py:func:`init`)."""
