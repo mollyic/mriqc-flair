@@ -483,7 +483,7 @@ class RotationMask(SimpleInterface):
         
 class _HeadReviewInputSpec(BaseInterfaceInputSpec):
     hmask = File(exists=True, mandatory=True, desc="Gradient magnitude headmask for review")
-    hmask_mni2std = File(exists=True, mandatory=True, desc="MNI headmask transformed into subject space")
+    hmask_mni2nat = File(exists=True, mandatory=True, desc="MNI headmask transformed into subject space")
     mni_floor = traits.Tuple(
         (0.0, 0.0, -40.0), 
         types=(traits.Float, traits.Float, traits.Float), 
@@ -494,8 +494,6 @@ class _HeadReviewInputSpec(BaseInterfaceInputSpec):
 
 class _HeadReviewOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='output reviewed mask')
-    out_crop_hmask = File(exists=True, desc='output reviewed mask')
-    out_crop_hmask_mni2std = File(exists=True, desc='output reviewed mask')
 
 class HeadMask_review(SimpleInterface):
     """
@@ -507,7 +505,7 @@ class HeadMask_review(SimpleInterface):
     Inputs
     ------
     hmask : Gradient magnitude headmask for review
-    hmask_mni2std : MNI template headmask transformed into subject space
+    hmask_mni2nat : MNI template headmask transformed into subject space
     mni_floor : MNI coordinate defining inferior cutoff
     ind2std_xfm : affine transform from subject to standard space (ITK format)
     artifact_thresh : volume threshold for flagging upper-mask artifacts (default: 150.0)
@@ -533,7 +531,7 @@ class HeadMask_review(SimpleInterface):
         hdr.set_data_dtype(np.uint8)
         
         hmask = hmask_img.get_fdata()
-        hmask_mni2std = (nib.load(self.inputs.hmask_mni2std).get_fdata() > 0).astype(np.uint8)
+        hmask_mni2nat = (nib.load(self.inputs.hmask_mni2nat).get_fdata() > 0).astype(np.uint8)
 
         # Load subject-to-MNI transform and compute inverse of subject affine
         xfm = Affine.from_filename(self.inputs.ind2std_xfm, fmt="itk")
@@ -544,25 +542,12 @@ class HeadMask_review(SimpleInterface):
 
         # Crop both masks at the z-floor        
         crop_hmask = hmask[:, :, int(mni_floor[2]): ]
-        crop_hmask_mni2std = hmask_mni2std[:, :, int(mni_floor[2]): ] 
+        crop_hmask_mni2nat = hmask_mni2nat[:, :, int(mni_floor[2]): ] 
 
-
-        #Testing output
-        out_crop_hmask = str(generate_filename(
-                self.inputs.hmask, 
-                suffix="out_crop_hmask").absolute()
-                )
-        nib.Nifti1Image(crop_hmask, hmask_img.affine, hdr).to_filename(out_crop_hmask)
-        out_crop_hmask_mni2std = str(generate_filename(
-                self.inputs.hmask, 
-                suffix="out_crop_hmask_mni2std").absolute()
-                )
-        nib.Nifti1Image(crop_hmask_mni2std, hmask_img.affine, hdr).to_filename(out_crop_hmask_mni2std)
-        config.loggers.workflow.info(f"Saving cropped mask to: {out_crop_hmask}")
         # Count non-zero voxels in subject and template upper masks        
         n_hmask = crop_hmask[crop_hmask !=0].size
-        n_hmask_mni2std = crop_hmask_mni2std[crop_hmask_mni2std !=0].size
-        overlap = (n_hmask / n_hmask_mni2std) * 100
+        n_hmask_mni2nat = crop_hmask_mni2nat[crop_hmask_mni2nat !=0].size
+        overlap = (n_hmask / n_hmask_mni2nat) * 100
         config.loggers.workflow.info(f"HeadMaskReview: subject/template voxel ratio above floor = {overlap:.2f}%")
 
         # If subject upper-mask is larger than threshold percentage, apply MNI mask        
@@ -571,7 +556,7 @@ class HeadMask_review(SimpleInterface):
             hmask_mnicrop = nib.load(hmask_mnicrop_path).get_fdata()
         
             # Apply MNI-derived mask to upper portion of image
-            hmask_mnicrop[:, :, int(mni_floor[2]):] *= hmask_mni2std[:, :, int(mni_floor[2]): ]
+            hmask_mnicrop[:, :, int(mni_floor[2]):] *= hmask_mni2nat[:, :, int(mni_floor[2]): ]
 
             out_file = str(generate_filename(
                 self.inputs.hmask, 
@@ -585,8 +570,6 @@ class HeadMask_review(SimpleInterface):
             out_file = self.inputs.hmask
         
         self._results["out_file"] = out_file
-        self._results["out_crop_hmask"] = out_crop_hmask
-        self._results["out_crop_hmask_mni2std"] = out_crop_hmask_mni2std
 
         return runtime
     
