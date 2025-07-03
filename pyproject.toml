@@ -24,7 +24,7 @@ dependencies = [
     # jinja2 imports deprecated function removed in 2.1
     "markupsafe ~= 2.0.1",
     "matplotlib",
-    "migas",
+    "migas~=0.0.0",
     "mriqc-learn",
     "nibabel >= 3.0.1",
     "nilearn >= 0.5.1",
@@ -32,7 +32,7 @@ dependencies = [
     "nireports ~= 23.1", 
     "nitransforms ~= 23.0", 
     "niworkflows >= 1.7.7", 
-    "networkx = <3.0",
+    "networkx ~= 2.8.8",
     "numpy ~=1.20",
     "pandas ~=1.0",
     "pybids >= 0.15.6",
