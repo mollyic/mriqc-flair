@@ -1,3 +1,15 @@
+"""
+Clean and refine brain tissue segmentations using using a simplified verions of ANTs
+`antsBrainExtraction.sh`.
+
+Takes outputted ATROPOS segmentation output and performs tissue-specific morphological 
+cleaning steps to improve the quality of the segmentation masks.
+
+Created by Molly Ireland
+
+"""
+
+
 from nipype import Node, Workflow, MapNode, Function
 from nipype.interfaces import utility as niu
 from nipype.interfaces.ants import (ImageMath, MultiplyImages,ThresholdImage)

@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+# Modified by Molly Ireland
+#
 """Reports."""
 import nibabel as nb
 import numpy as np

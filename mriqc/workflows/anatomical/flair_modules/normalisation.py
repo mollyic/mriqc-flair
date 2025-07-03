@@ -1,5 +1,18 @@
 
-# Class to run report functionality 
+"""
+Custom report-capable interface for ANTs RegistrationSynQuick.
+
+This class adds SVG report generation to the lightweight RegistrationSynQuick 
+interface, using B-spline SyN registration [Tustison2013]. 
+
+  .. [Tustison2013] Tustison NJ, Avants BB., *Explicit B-spline regularization in 
+    diffeomorphic image registration*, Front Neuroinform 7(39), 2013 
+    doi:`10.3389/fninf.2013.00039 <http://dx.doi.org/10.3389/fninf.2013.00039>`_.
+
+Created by Molly Ireland
+"""
+
+
 import niworkflows.interfaces.reportlets.base as nrb
 from nipype.interfaces.ants import (RegistrationSynQuick)
 from nipype.interfaces.ants.registration import (RegistrationSynQuickOutputSpec, RegistrationSynQuickInputSpec)

@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+# Modified by Molly Ireland
+#
 """Encapsulates report generation functions."""
 from builtins import object  # pylint: disable=W0622
 from io import open

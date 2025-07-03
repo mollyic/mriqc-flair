@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+#  Modified by Molly Ireland
+#
 """
 Combines the structural and functional MRI workflows.
 """

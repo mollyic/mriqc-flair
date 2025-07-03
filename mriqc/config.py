@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+#  Modified by Molly Ireland
+#
 r"""
 A Python module to maintain unique, run-wide *MRIQC* settings.
 
@@ -534,11 +536,7 @@ class workflow(_Config):
     """Subject species to choose most appropriate template"""
     template_id = "MNI152NLin2009cAsym"
     """TemplateFlow ID of template used for the anatomical processing."""
-    mni_resolution = 2
-    """Manual headmask"""
-    #hmask_MNI = Path.cwd() / "mriqc" / "templates" / "tpl-MNI152NLin2009cAsym_res-02_desc-head_mask"
-    #hmask_MNI = f"{os.getcwd()}/mriqc/templates/tpl-MNI152Lin_res-02_desc-head_mask.nii.gz"
-    """Path to headmask template """
+
 
 class loggers:
     """Keep loggers easily accessible (see :py:func:`init`)."""
