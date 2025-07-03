@@ -281,7 +281,6 @@ def spatial_normalization(name="SpatialNormalization"):
         RobustMNINormalization(
             dimension=3,
             num_threads=config.nipype.omp_nthreads,
-            float=config.execution.ants_float,
             transform_type = "b",
             generate_report=True,
         ),
@@ -290,7 +289,6 @@ def spatial_normalization(name="SpatialNormalization"):
         num_threads=config.nipype.omp_nthreads,
         mem_gb=3,
     )
-
 
     # Project standard TPMs into T1w space
     tpms_std2t1w = pe.MapNode(

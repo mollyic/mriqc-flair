@@ -480,6 +480,41 @@ class RotationMask(SimpleInterface):
         out_img.to_filename(out_file)
         self._results["out_file"] = out_file
         return runtime
+
+def artifact_mask(imdata, airdata, distance, zscore=10.0):
+    """Compute a mask of artifacts found in the air region."""
+    from statsmodels.robust.scale import mad
+
+    qi1_msk = np.zeros(imdata.shape, dtype=bool)
+    bg_data = imdata[airdata]
+    if (bg_data > 0).sum() < 10:
+        return qi1_msk
+
+    # Standardize the distribution of the background
+    bg_spread = mad(bg_data[bg_data > 0])
+    bg_data[bg_data > 0] = bg_data[bg_data > 0] / bg_spread
+
+    # Apply this threshold to the background voxels to identify voxels
+    # contributing artifacts.
+    qi1_msk[airdata] = bg_data > zscore
+    qi1_msk[distance < 0.10] = False
+
+    # Create a structural element to be used in an opening operation.
+    struct = nd.generate_binary_structure(3, 1)
+    qi1_msk = nd.binary_opening(qi1_msk, struct).astype(np.uint8)
+    return qi1_msk
+
+
+def fuzzy_jaccard(in_tpms, in_mni_tpms):
+    overlaps = []
+    for tpm, mni_tpm in zip(in_tpms, in_mni_tpms):
+        tpm = tpm.reshape(-1)
+        mni_tpm = mni_tpm.reshape(-1)
+
+        num = np.min([tpm, mni_tpm], axis=0).sum()
+        den = np.max([tpm, mni_tpm], axis=0).sum()
+        overlaps.append(float(num / den))
+    return overlaps
         
 class _HeadReviewInputSpec(BaseInterfaceInputSpec):
     hmask = File(exists=True, mandatory=True, desc="Gradient magnitude headmask for review")
@@ -540,7 +575,7 @@ class HeadMask_review(SimpleInterface):
         # Map MNI floor coordinate into subject voxel space        
         mni_floor = apply_affine(ras2ijk, xfm.map(self.inputs.mni_floor))[0]
 
-        # Crop both masks at the z-floor        
+        # Crop masks at the defined z-floor        
         crop_hmask = hmask[:, :, int(mni_floor[2]): ]
         crop_hmask_mni2nat = hmask_mni2nat[:, :, int(mni_floor[2]): ] 
 
@@ -551,7 +586,7 @@ class HeadMask_review(SimpleInterface):
         config.loggers.workflow.info(f"HeadMaskReview: subject/template voxel ratio above floor = {overlap:.2f}%")
 
         # If subject upper-mask is larger than threshold percentage, apply MNI mask        
-        if overlap != self.inputs.artifact_thresh: 
+        if overlap >= self.inputs.artifact_thresh: 
             hmask_mnicrop_path = self.inputs.hmask.replace('_hmask','')
             hmask_mnicrop = nib.load(hmask_mnicrop_path).get_fdata()
         
@@ -563,8 +598,9 @@ class HeadMask_review(SimpleInterface):
                 suffix="MNIcrop").absolute()
                 )
             
-            config.loggers.workflow.info(f"HeadMaskReview: hmask_mnicrop_path = {hmask_mnicrop_path}%")
-
+            config.loggers.workflow.info(
+                f"HeadMaskReview: Threshold exceeded: cropping with MNI-transformed template."
+            )
             nib.Nifti1Image(hmask_mnicrop, hmask_img.affine, hdr).to_filename(out_file)
         else:
             out_file = self.inputs.hmask
@@ -573,38 +609,3 @@ class HeadMask_review(SimpleInterface):
 
         return runtime
     
-
-def artifact_mask(imdata, airdata, distance, zscore=10.0):
-    """Compute a mask of artifacts found in the air region."""
-    from statsmodels.robust.scale import mad
-
-    qi1_msk = np.zeros(imdata.shape, dtype=bool)
-    bg_data = imdata[airdata]
-    if (bg_data > 0).sum() < 10:
-        return qi1_msk
-
-    # Standardize the distribution of the background
-    bg_spread = mad(bg_data[bg_data > 0])
-    bg_data[bg_data > 0] = bg_data[bg_data > 0] / bg_spread
-
-    # Apply this threshold to the background voxels to identify voxels
-    # contributing artifacts.
-    qi1_msk[airdata] = bg_data > zscore
-    qi1_msk[distance < 0.10] = False
-
-    # Create a structural element to be used in an opening operation.
-    struct = nd.generate_binary_structure(3, 1)
-    qi1_msk = nd.binary_opening(qi1_msk, struct).astype(np.uint8)
-    return qi1_msk
-
-
-def fuzzy_jaccard(in_tpms, in_mni_tpms):
-    overlaps = []
-    for tpm, mni_tpm in zip(in_tpms, in_mni_tpms):
-        tpm = tpm.reshape(-1)
-        mni_tpm = mni_tpm.reshape(-1)
-
-        num = np.min([tpm, mni_tpm], axis=0).sum()
-        den = np.max([tpm, mni_tpm], axis=0).sum()
-        overlaps.append(float(num / den))
-    return overlaps

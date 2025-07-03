@@ -21,12 +21,21 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+# --------------------------------------------------------------------
+# Modified by Molly Ireland
+# --------------------------------------------------------------------
 
 # Use Ubuntu 20.04 LTS
 FROM nipreps/miniconda:py39_2205.0
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:${CONDA_PATH}/lib"
+
+# Install FSL 
+ENV FSLDIR="/usr/local/fsl"
+RUN wget https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py && \
+    python ./fslinstaller.py -d /usr/local/fsl/ && \
+    rm fslinstaller.py 
 
 # Install AFNI latest (neurodocker build)
 ENV AFNI_DIR="/opt/afni"
