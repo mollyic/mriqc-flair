@@ -976,6 +976,8 @@ def _get_info(in_file):
     from templateflow.api import get as get_template
     from niworkflows.utils.misc import get_template_specs
     from mriqc.workflows.anatomical.base import _get_mod
+    from mriqc.workflows.anatomical.flair_modules.normalisation import _get_custom_templates
+
     """
     Extracts image metadata and appropriate template resources for downstream anatomical processing
 
@@ -1009,6 +1011,8 @@ def _get_info(in_file):
     template_spec["suffix"] = template_spec.get("suffix", modality)
 
     #3. Get MNI template
+    if modality == 'FLAIR':
+       _get_custom_templates()
     tpl_target_path, common_spec = get_template_specs(tpl_id, template_spec=template_spec, fallback=True,)
 
     #4. binary mask for brain
@@ -1051,4 +1055,3 @@ def _get_info(in_file):
     config.loggers.workflow.info(message)
 
     return modality, bspline, tpl_target_path, tpl_mask_path, wm_tpl, tissue_tpls, likelihood_model
-

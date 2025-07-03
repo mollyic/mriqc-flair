@@ -111,6 +111,7 @@ RUN ldconfig
 # Installing dev requirements (packages that are not in pypi)
 WORKDIR /src/
 # Precaching atlases
+ENV TEMPLATEFLOW_HOME=/home/mriqc/.cache/templateflow
 RUN python -c "from templateflow import api as tfapi; \
                tfapi.get('MNI152NLin2009cAsym', resolution=[1, 2], suffix=['T1w', 'T2w'], desc=None); \
                tfapi.get('MNI152NLin2009cAsym', resolution=[1, 2], suffix='mask',\
