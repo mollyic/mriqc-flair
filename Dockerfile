@@ -86,7 +86,7 @@ RUN apt-get update \
 # Installing ANTs 2.3.4 (NeuroDocker build)
 ENV ANTSPATH="/opt/ants"
 WORKDIR $ANTSPATH
-RUN curl -sSL "https://dl.dropbox.com/s/gwf51ykkk5bifyj/ants-Linux-centos6_x86_64-v2.3.4.tar.gz" \
+RUN curl -sSL "https://github.com/ANTsX/ANTs/archive/refs/tags/v2.3.4.tar.gz" \
     | tar -xzC $ANTSPATH --strip-components 1
 ENV PATH="$ANTSPATH:$PATH"
 
@@ -126,10 +126,11 @@ RUN git config --global user.name "NiPrep MRIQC" \
 COPY . /src/mriqc
 # Force static versioning within container
 ARG VERSION
+# Set pretend version for setuptools-scm
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=23.1.0
+ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_MRIQC=23.1.0
+RUN pip install --no-cache-dir "/src/mriqc[all]"
 
-
-RUN export SETUPTOOLS_SCM_PRETEND_VERSION=$VERSION && \
-    pip install --no-cache-dir "/src/mriqc[all]"
 
 RUN find $HOME -type d -exec chmod go=u {} + && \
     find $HOME -type f -exec chmod go=u {} + && \
