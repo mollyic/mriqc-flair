@@ -317,10 +317,9 @@ def spatial_normalization(name="SpatialNormalization"):
         )
 
     hmask_mni2nat.inputs.input_image = get_template(
-        template='MNI152NLin2009cAsym',
+        template='MNI152Lin',
         desc='head',
         suffix='mask',
-        extension='nii.gz', 
         resolution ='2'
         )
     hmask_mni2nat.inputs.invert_transform_flags = [True]

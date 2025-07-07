@@ -36,6 +36,7 @@ ENV FSLDIR="/usr/local/fsl"
 RUN wget https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py && \
     python ./fslinstaller.py -d /usr/local/fsl/ && \
     rm fslinstaller.py 
+ENV PATH="$PATH:$FSLDIR/bin"
 
 # Install AFNI latest (neurodocker build)
 ENV AFNI_DIR="/opt/afni"
@@ -84,12 +85,16 @@ RUN apt-get update \
  && ldconfig
 
 # Installing ANTs 2.3.4 (NeuroDocker build)
-ENV ANTSPATH="/opt/ants"
-WORKDIR $ANTSPATH
-RUN curl -sSL "https://github.com/ANTsX/ANTs/archive/refs/tags/v2.3.4.tar.gz" \
-    | tar -xzC $ANTSPATH --strip-components 1
+ENV ANTSPATH="/opt/ants/ants-2.4.1/bin/"
+WORKDIR "/opt/ants"
+RUN curl -SLO "https://github.com/ANTsX/ANTs/releases/download/v2.4.1/ants-2.4.1-centos7-X64-gcc.zip" && \
+    unzip ants-2.4.1-centos7-X64-gcc.zip && \
+    rm ants-2.4.1-centos7-X64-gcc.zip
 ENV PATH="$ANTSPATH:$PATH"
 
+
+RUN bet --help | true 
+RUN which N4BiasFieldCorrection 
 # Unless otherwise specified each process should only use one thread - nipype
 # will handle parallelization
 ENV MKL_NUM_THREADS=1 \
@@ -110,9 +115,25 @@ ENV HOME="/home/mriqc"
 RUN ldconfig
 # Installing dev requirements (packages that are not in pypi)
 WORKDIR /src/
+
+# Installing MRIQC
+COPY . /src/mriqc
+# Force static versioning within container
+ARG VERSION
+
+RUN export SETUPTOOLS_SCM_PRETEND_VERSION=23.1.0 && \
+    pip install --no-cache-dir "/src/mriqc[all]"
+RUN which mriqc
+
+# Download FLAIR templates from Braindr and add to templateflow directory
+RUN python /src/mriqc/mriqc/workflows/anatomical/flair_modules/normalisation.py
+
 # Precaching atlases
-ENV TEMPLATEFLOW_HOME=/home/mriqc/.cache/templateflow
 RUN python -c "from templateflow import api as tfapi; \
+               tfapi.get('GG853', resolution=1, suffix='FLAIR', desc=None); \
+               tfapi.get('GG853', resolution=1, suffix='probseg',\
+                         label=['CSF', 'GM', 'WM']);\
+               tfapi.get('MNI152Lin', resolution=[1, 2], suffix='mask', desc='head'); \
                tfapi.get('MNI152NLin2009cAsym', resolution=[1, 2], suffix=['T1w', 'T2w'], desc=None); \
                tfapi.get('MNI152NLin2009cAsym', resolution=[1, 2], suffix='mask',\
                          desc=['brain', 'head']); \
@@ -123,14 +144,7 @@ RUN python -c "from templateflow import api as tfapi; \
 
 RUN git config --global user.name "NiPrep MRIQC" \
     && git config --global user.email "nipreps@gmail.com"
-# Installing MRIQC
-COPY . /src/mriqc
-# Force static versioning within container
-ARG VERSION
-# Set pretend version for setuptools-scm
-ENV SETUPTOOLS_SCM_PRETEND_VERSION=23.1.0
-ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_MRIQC=23.1.0
-RUN pip install --no-cache-dir "/src/mriqc[all]"
+
 
 
 RUN find $HOME -type d -exec chmod go=u {} + && \

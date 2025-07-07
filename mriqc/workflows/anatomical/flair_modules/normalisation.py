@@ -6,7 +6,6 @@ import niworkflows.interfaces.reportlets.base as nrb
 from nipype.interfaces.ants import (RegistrationSynQuick)
 from nipype.interfaces.ants.registration import (RegistrationSynQuickOutputSpec, RegistrationSynQuickInputSpec)
 from nipype.interfaces.mixins import reporting
-from mriqc import config
 
 
 class _RegistrationSynQuickInputSpecRPT(nrb._SVGReportCapableInputSpec, RegistrationSynQuickInputSpec):
@@ -27,9 +26,12 @@ class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
 
     Created by Molly Ireland
     """
+    
     input_spec = _RegistrationSynQuickInputSpecRPT
     output_spec = _RegistrationSynQuickOutputSpecRPT
     def _post_run_hook(self, runtime):
+        from mriqc import config
+
         # Get arguments from ANTS
         self._fixed_image = self.inputs.fixed_image
         if isinstance(self._fixed_image, (list, tuple)):
@@ -172,3 +174,7 @@ def _get_custom_templates(modality: str = 'FLAIR',
 
     if not tpl_license.exists():
         tpl_license.write_text(license_text)
+
+if __name__ == "__main__":
+    print("Running FLAIR template check/download...")
+    _get_custom_templates()
