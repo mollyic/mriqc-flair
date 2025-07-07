@@ -45,7 +45,7 @@ docker run -it --rm \
 docker run -it --rm \
   -v <bids_dir>:/data:ro \
   -v <output_dir>:/out \
-  mriqc-custom \
+  mriqc-flair \
   /data /out group
 ```
 
