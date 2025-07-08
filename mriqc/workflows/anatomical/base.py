@@ -608,7 +608,7 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
     )
     thresh = pe.Node(
         niu.Function(
-            input_names=["in_file", "brainmask", "aniso", "thresh"],
+            input_names=["in_file", "brainmask", "modality", "aniso", "thresh"],
             output_names=["out_file"],
             function=gradient_threshold,
         ),
@@ -632,7 +632,7 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
         (inputnode, enhance, [("in_file", "in_file"),
                               ('modality', "modality"),
                               (("in_tpms", _select_wm), "wm_tpm")]),
-        (inputnode, thresh, [("skinmask", "brainmask")
+        (inputnode, thresh, [("skinmask", "brainmask"),
                              ('modality', "modality"),]),
         (inputnode, gradient, [("skinmask", "brainmask")]),
         (inputnode, apply_mask, [("brainmask", "in_mask")]),
@@ -932,15 +932,17 @@ def gradient_threshold(in_file, brainmask, modality, thresh=15.0, out_file=None,
     data = imnii.get_fdata(dtype=np.float32)
 
     mask = np.zeros_like(data, dtype=np.uint8)
-    thresh = np.percentile(data[data != 0], 20) if modality == 'FLAIR' else thresh
+    # Increased threshold for FLAIR to suppress background, complementary increase in binary closing
+    thresh, iter = (20, 10) if modality == 'FLAIR' else (thresh, 1)
+    print(f"\n\n\nApplying threshold for modality: {modality}\n\t* Thresh: {thresh:.2f}% \n\t* iter {iter} \n\n\n")
     mask[data > thresh] = 1
 
-    #Add padding
+    #Add padding to remove edge effects 
     pad = 100
     bmask = nb.load(brainmask).get_fdata()
     bmask = np.pad(bmask, pad, mode='constant', constant_values=0)
     mask = np.pad(mask, pad, mode='constant', constant_values=0)
-    mask = sim.binary_closing(mask, struct, iterations=2).astype(np.uint8)
+    mask = sim.binary_closing(mask, struct, iterations=iter).astype(np.uint8)
     mask = sim.binary_erosion(mask, sim.generate_binary_structure(3, 2)).astype(np.uint8)
 
     segdata = np.asanyarray(bmask) > 0
@@ -1059,12 +1061,7 @@ def _get_info(in_file):
         * INU bspline fitting distance:                 {params["bspline"]}
         * Template:                                     {tpl_id}
             * Path:          {tpl_target_path}
-    
             * Template specifications:              {common_spec}
-        * tpl_mask_path:            {tpl_mask_path}
-        * tissue_tpls:              {tissue_tpls}
-        * wm_tpl:                   {wm_tpl}
-
     """
     config.loggers.workflow.info(message)
 

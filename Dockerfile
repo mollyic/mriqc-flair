@@ -31,13 +31,6 @@ FROM nipreps/miniconda:py39_2205.0
 ARG DEBIAN_FRONTEND=noninteractive
 ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:${CONDA_PATH}/lib"
 
-# Install FSL 
-ENV FSLDIR="/usr/local/fsl"
-RUN wget https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py && \
-    python ./fslinstaller.py -d /usr/local/fsl/ && \
-    rm fslinstaller.py 
-ENV PATH="$PATH:$FSLDIR/bin"
-
 # Install AFNI latest (neurodocker build)
 ENV AFNI_DIR="/opt/afni"
 RUN echo "Downloading AFNI ..." \
@@ -83,6 +76,25 @@ RUN apt-get update \
                     xfonts-base                       \
  && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
  && ldconfig
+
+# Install FSL 
+# ENV FSLDIR="/usr/local/fsl"
+# RUN wget https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py && \
+#     python ./fslinstaller.py -d /usr/local/fsl/ && \
+#     rm fslinstaller.py 
+# ENV PATH="$PATH:$FSLDIR/bin"
+
+# Install core FSL from NeuroDebian (13.1GB full FSL - 4BG)
+RUN curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc | \
+    gpg --dearmor -o /usr/share/keyrings/neurodebian.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/neurodebian.gpg] http://neuro.debian.net/debian data main" > /etc/apt/sources.list.d/neurodebian.sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends fsl-core && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Set FSL paths
+ENV FSLDIR="/usr/share/fsl/5.0"
+ENV PATH="$PATH:$FSLDIR/bin"
 
 # Installing ANTs 2.3.4 (NeuroDocker build)
 ENV ANTSPATH="/opt/ants/ants-2.4.1/bin/"
