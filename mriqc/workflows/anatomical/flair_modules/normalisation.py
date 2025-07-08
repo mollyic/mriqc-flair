@@ -1,3 +1,11 @@
+"""
+Extensions to MRIQC spatial normalization to support FLAIR images.
+
+Includes wrapper classes for ANTs registration and reporting interfaces,
+as well as custom logic for downloading or registering FLAIR templates 
+(GG853) into TemplateFlow.
+"""
+
 from niworkflows.interfaces.norm import (
     _SpatialNormalizationInputSpec,
     SpatialNormalization,
@@ -6,14 +14,53 @@ from niworkflows.interfaces.norm import (
 from nipype.interfaces.base import traits
 from niworkflows.interfaces.reportlets.registration import SpatialNormalizationRPT,_SpatialNormalizationInputSpecRPT, _SpatialNormalizationOutputSpecRPT
 from niworkflows.interfaces.reportlets import base as nrb
+from niworkflows.interfaces.norm import NIWORKFLOWS_LOG
+
+from nipype.interfaces.ants import (RegistrationSynQuick)
+from nipype.interfaces.ants.registration import (RegistrationSynQuickOutputSpec, RegistrationSynQuickInputSpec)
+from nipype.interfaces.mixins import reporting
+import urllib.request
 from pathlib import Path
 import shutil
 from typing import Optional, List
-import urllib.request
 
-from niworkflows.interfaces.norm import NIWORKFLOWS_LOG
+class _RegistrationSynQuickInputSpecRPT(nrb._SVGReportCapableInputSpec, RegistrationSynQuickInputSpec):
+    pass
 
+class _RegistrationSynQuickOutputSpecRPT(reporting.ReportCapableOutputSpec, RegistrationSynQuickOutputSpec):
+    pass
+class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
+    """
+    Custom report-capable interface for ANTs RegistrationSynQuick.
 
+    This class adds SVG report generation to the lightweight RegistrationSynQuick 
+    interface, using B-spline SyN registration [Tustison2013]. 
+
+    .. [Tustison2013] Tustison NJ, Avants BB., *Explicit B-spline regularization in 
+        diffeomorphic image registration*, Front Neuroinform 7(39), 2013 
+        doi:`10.3389/fninf.2013.00039 <http://dx.doi.org/10.3389/fninf.2013.00039>`_.
+
+    Created by Molly Ireland
+    """
+    
+    input_spec = _RegistrationSynQuickInputSpecRPT
+    output_spec = _RegistrationSynQuickOutputSpecRPT
+    def _post_run_hook(self, runtime):
+        from mriqc import config
+
+        # Get arguments from ANTS
+        self._fixed_image = self.inputs.fixed_image
+        if isinstance(self._fixed_image, (list, tuple)):
+            self._fixed_image = self.inputs.fixed_image[0]
+        
+        self._moving_image = self.aggregate_outputs(runtime=runtime).warped_image
+        config.loggers.workflow.info(
+            "Report - setting fixed (%s) and moving (%s) images",
+            self._fixed_image,
+            self._moving_image,
+        )
+
+        return super()._post_run_hook(runtime)
 
 class _WrapSpatialNormalizationInputSpec(_SpatialNormalizationInputSpec):
     reference = traits.Enum(
@@ -35,6 +82,12 @@ class _WrapSpatialNormalizationInputSpecRPT(
 ):
     pass
 class WrapSpatialNormalizationRPT(nrb.RegistrationRC, WrapSpatialNormalization):
+    """
+    Wrapper around NiWorkflows' SpatialNormalization and its reporting variant
+    to extend support for FLAIR.
+    This class adds SVG report generation to the SpatialNormalization interface
+    """
+
     input_spec = _WrapSpatialNormalizationInputSpecRPT
     output_spec = _SpatialNormalizationOutputSpecRPT
 
@@ -178,3 +231,9 @@ def _get_custom_templates(modality: str = 'FLAIR',
 
     if not tpl_license.exists():
         tpl_license.write_text(license_text)
+
+if __name__ == "__main__":
+    """Run the FLAIR template check/download script"""
+
+    print("Running FLAIR template check/download...")
+    _get_custom_templates()

@@ -20,7 +20,7 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
-"""Nipype translation of ANTs' workflows."""
+""" Testing version for spatial Normalisation with reports with normal spatial normalization"""
 
 # general purpose
 from pkg_resources import resource_filename as pkgr_fn
@@ -45,7 +45,7 @@ from mriqc.workflows.anatomical.base import init_brain_tissue_segmentation
 
 def spatial_normalization(name='SpatialNormalization'):
     """Create a simplified workflow to perform fast spatial normalization."""
-    from mriqc.workflows.anatomical.modules.flair_spatialnorm import (
+    from mriqc.workflows.anatomical.flair_modules.normalisation import (
         WrapSpatialNormalizationRPT as RobustMNINormalization,
     )
     from pathlib import Path

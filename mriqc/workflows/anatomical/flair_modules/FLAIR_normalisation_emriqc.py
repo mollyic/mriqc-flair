@@ -20,7 +20,7 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
-"""Nipype translation of ANTs' workflows."""
+""" Version used in original EMRIQC with QuickSyn but no report"""
 
 # general purpose
 from pkg_resources import resource_filename as pkgr_fn

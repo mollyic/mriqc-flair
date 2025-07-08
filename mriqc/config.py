@@ -22,6 +22,7 @@
 #
 #  Modified by Molly Ireland
 #
+
 r"""
 A Python module to maintain unique, run-wide *MRIQC* settings.
 

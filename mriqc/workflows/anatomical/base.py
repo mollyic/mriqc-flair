@@ -69,12 +69,11 @@ from mriqc.interfaces import (
     HeadMask_review,
     StructuralQC,
 )
+from mriqc.workflows.anatomical.flair_modules.clean_segs_ants import clean_tissue_segs
 from mriqc.interfaces.reports import AddProvenance
 from mriqc.messages import BUILDING_WORKFLOW
 from mriqc.workflows.anatomical.output import init_anat_report_wf
 from mriqc.workflows.utils import get_fwhmx
-
-from mriqc.config import INI
 
 def anat_qc_workflow(name='anatMRIQC'):
     """
@@ -162,7 +161,7 @@ def anat_qc_workflow(name='anatMRIQC'):
     # 4. Spatial Normalization, using ANTs
     norm = spatial_normalization()
     # 4a. QuickSyn spatial normalisation
-    from mriqc.workflows.anatomical.modules.FLAIR_normalisation_emriqc import spatial_normalization as quicksyn_norm
+    from mriqc.workflows.anatomical.flair_modules.FLAIR_normalisation_emriqc import spatial_normalization as quicksyn_norm
     syn_norm = quicksyn_norm()
 
     # 5. Air mask (with and without artifacts)
@@ -296,7 +295,7 @@ def anat_qc_workflow(name='anatMRIQC'):
 
 def spatial_normalization(name='SpatialNormalization'):
     """Create a simplified workflow to perform fast spatial normalization."""
-    from mriqc.workflows.anatomical.modules.flair_spatialnorm import (
+    from mriqc.workflows.anatomical.flair_modules.normalisation import (
         WrapSpatialNormalizationRPT as RobustMNINormalization,
     )
     from pathlib import Path
@@ -930,7 +929,7 @@ def _get_info(in_file):
     from templateflow.api import get as get_template
     from niworkflows.utils.misc import get_template_specs
     #from mriqc.workflows.anatomical.base import _get_mod
-    from mriqc.workflows.anatomical.modules.flair_spatialnorm import _get_custom_templates
+    from mriqc.workflows.anatomical.flair_modules.normalisation import _get_custom_templates
 
     """
     Retrieve information for future processing, returns:

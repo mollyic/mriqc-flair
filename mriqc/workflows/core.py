@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+#  Modified by Molly Ireland
+#
 """
 Combines the structural and functional MRI workflows.
 """
@@ -40,7 +42,7 @@ def init_mriqc_wf():
     from mriqc import config
 
     # Create parent workflow
-    workflow = Workflow(name='mriqc_wf')
+    workflow = Workflow(name="mriqc-flair_wf")
     workflow.base_dir = config.execution.work_dir
 
     # Create fMRI QC workflow
