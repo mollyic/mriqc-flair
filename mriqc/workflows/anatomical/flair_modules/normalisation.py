@@ -10,11 +10,13 @@ from niworkflows.interfaces.norm import (
     _SpatialNormalizationInputSpec,
     SpatialNormalization,
 )
-
+from nipype.interfaces import utility as niu
+from nipype.pipeline import engine as pe
 from nipype.interfaces.base import traits
 from niworkflows.interfaces.reportlets.registration import SpatialNormalizationRPT,_SpatialNormalizationInputSpecRPT, _SpatialNormalizationOutputSpecRPT
 from niworkflows.interfaces.reportlets import base as nrb
 from niworkflows.interfaces.norm import NIWORKFLOWS_LOG
+from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 
 from nipype.interfaces.ants import (RegistrationSynQuick)
 from nipype.interfaces.ants.registration import (RegistrationSynQuickOutputSpec, RegistrationSynQuickInputSpec)
@@ -23,6 +25,8 @@ import urllib.request
 from pathlib import Path
 import shutil
 from typing import Optional, List
+
+from mriqc import config
 
 class _RegistrationSynQuickInputSpecRPT(nrb._SVGReportCapableInputSpec, RegistrationSynQuickInputSpec):
     pass
@@ -61,6 +65,100 @@ class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
         )
 
         return super()._post_run_hook(runtime)
+
+
+def quicksyn_normalisation(name="QuickSynSpatialNormalization"):
+    """Create a simplied workflow to perform spatial normalization with Ants QuickSyn."""
+    from mriqc.workflows.anatomical.flair_modules.normalisation import (
+        RegistrationSynQuickRPT as RobustMNINormalization
+    )
+
+    from templateflow.api import get as get_template
+    # Define workflow interface
+    workflow = pe.Workflow(name=name)
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=[
+            "moving_image", 
+            'moving_mask', 
+            'tissue_tpls',
+            'tpl_target_path',
+            'tpl_mask_path',]), 
+            name="inputnode")
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=["out_tpms", "out_report", "ind2std_xfm", 'hmask_mni2nat']),
+        name="outputnode",
+    )
+
+    # Spatial normalization
+    norm = pe.Node(
+        RobustMNINormalization(
+            dimension=3,
+            num_threads=config.nipype.omp_nthreads,
+            transform_type = "b",
+            generate_report=True,
+        ),
+        name="SpatialNormalization",
+        # Request all MultiProc processes when ants_nthreads > n_procs
+        num_threads=config.nipype.omp_nthreads,
+        mem_gb=3,
+    )
+
+    # Project standard TPMs into T1w space
+    tpms_std2t1w = pe.MapNode(
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            interpolation="Linear",
+            float=config.execution.ants_float,
+        ),
+        iterfield=["input_image"],
+        name="tpms_std2t1w",
+    )
+    tpms_std2t1w.inputs.invert_transform_flags = [True]
+
+    # Project standard headmask into native space
+    hmask_mni2nat = pe.Node(
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            interpolation="Linear",
+            float=config.execution.ants_float,
+        ),
+        name="hmask_mni2nat"
+        )
+
+    hmask_mni2nat.inputs.input_image = get_template(
+        template='MNI152Lin',
+        desc='head',
+        suffix='mask',
+        resolution ='2'
+        )
+    hmask_mni2nat.inputs.invert_transform_flags = [True]
+
+    # fmt: off
+    workflow.connect([
+        (inputnode, norm, [("moving_image", "moving_image"), 
+                           ("tpl_target_path", "fixed_image")]),
+        (inputnode, tpms_std2t1w, [("moving_image", "reference_image"),
+                                   ("tissue_tpls", "input_image")]),
+        (norm, tpms_std2t1w, [
+            ("out_matrix", "transforms")
+        ]),
+        (norm, outputnode, [
+            ("out_matrix", "ind2std_xfm"),
+            ("out_report", "out_report"),
+        ]),
+        (tpms_std2t1w, outputnode, [("output_image", "out_tpms")]),
+        (inputnode, hmask_mni2nat, [("moving_image", "reference_image")]),
+        (norm, hmask_mni2nat, [("out_matrix", "transforms")]),
+        (hmask_mni2nat, outputnode, [("output_image", "hmask_mni2nat")]), 
+    ])
+    # fmt: on
+
+    return workflow
+
+
+
 
 class _WrapSpatialNormalizationInputSpec(_SpatialNormalizationInputSpec):
     reference = traits.Enum(
