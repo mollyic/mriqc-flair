@@ -589,7 +589,7 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
 
     enhance = pe.Node(
         niu.Function(
-            input_names=["in_file", "wm_tpm"],
+            input_names=["in_file", "wm_tpm", "modality"],
             output_names=["out_file"],
             function=_enhance,
         ),
@@ -630,6 +630,7 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
     # fmt: off
     workflow.connect([
         (inputnode, enhance, [("in_file", "in_file"),
+                              ('modality', "modality"),
                               (("in_tpms", _select_wm), "wm_tpm")]),
         (inputnode, thresh, [("skinmask", "brainmask")]),
         (inputnode, gradient, [("skinmask", "brainmask")]),
@@ -846,14 +847,16 @@ def _binarize(in_file, threshold=0.5, out_file=None):
     return out_file
 
 
-def _enhance(in_file, wm_tpm, out_file=None):
+def _enhance(in_file, wm_tpm, modality, out_file=None):
     import numpy as np
     import nibabel as nb
     from mriqc.workflows.utils import generate_filename
 
     imnii = nb.load(in_file)
     data = imnii.get_fdata(dtype=np.float32)
-    range_max = np.percentile(data[data > 0], 99.95)
+    # Increase suppression of high-intensity WM voxels: improving FLAIR tissue segmentation
+    thresh =  99.95 if modality.lower() == "flair" else 99.98
+    range_max = np.percentile(data[data > 0], thresh)
     excess = data > range_max
 
     wm_prob = nb.load(wm_tpm).get_fdata()
@@ -872,7 +875,7 @@ def _enhance(in_file, wm_tpm, out_file=None):
     return out_file
 
 
-def image_gradient(in_file, brainmask, sigma=3.0, out_file=None):
+def image_gradient(in_file, brainmask, sigma=4.0, out_file=None):
     """Computes the magnitude gradient of an image using numpy"""
     import nibabel as nb
     import numpy as np
@@ -995,54 +998,57 @@ def _get_info(in_file):
     likelihood_model : Tissue segmentation model type for Atropos (e.g., 'HistogramParzenWindows' for FLAIR, 
         'Gaussian' for others).
     """
-    # def _get_mod(in_file):
-    #     from pathlib import Path
-
-    #     return Path(in_file).name.rstrip(".gz").rstrip(".nii").split("_")[-1]
 
     #1. Get modality
     modality = _get_mod(in_file)
 
-    #2. Get template ID, bspline
-    bspline = 400 if modality =='FLAIR' else 200
-    tpl_id ='GG853' if modality == 'FLAIR' else config.workflow.template_id
-    template_spec = {}
-    template_spec["suffix"] = template_spec.get("suffix", modality)
-
+    #2. Get bspline, atropos segmentation likelihood_model, MNI template ID  
+    modality_params = {
+        "FLAIR": {
+            "bspline": 400, 
+            "tpl_id": "GG853", 
+            "likelihood_model": "HistogramParzenWindows"},
+        "T1w":   {
+            "bspline": 200, 
+            "tpl_id": config.workflow.template_id, 
+            "likelihood_model": "Linear"
+            },
+    }
+    params = modality_params.get(modality, modality_params["T1w"])  # fallback to T1w
     #3. Get MNI template
     if modality == 'FLAIR':
        _get_custom_templates()
+    tpl_id =params["tpl_id"]
+    template_spec = {}
+    template_spec["suffix"] = template_spec.get("suffix", modality)
     tpl_target_path, common_spec = get_template_specs(tpl_id, template_spec=template_spec, fallback=True,)
 
-    #4. binary mask for brain
+    #4. binary brain mask 
     tpl_mask_path =  get_template(tpl_id, desc="brain", suffix="mask", **common_spec)
 
-    #Check species and configure tpls accordingly 
+    #5. Check species and configure tpls accordingly 
     tpl_target_path, tpl_mask_path = ((tpl_target_path, tpl_mask_path) 
                                       if config.workflow.species.lower() == "human" 
                                       else (str(get_template(tpl_id, suffix="T2w")), 
                                             str(get_template(tpl_id, desc="brain", suffix="mask")[0]))
                                             )
-    #5. Get tissue templates
+    #6. Get tissue templates
     tissue_tpls = [str(p) 
                    for p in get_template(tpl_id,
                                          suffix="probseg",
                                          resolution=(1 if config.workflow.species.lower() == "human" else None),
                                          label=["CSF", "GM", "WM"],
                                          )]
-
-    #6. WM template                                         
+    #7. WM template                                         
     wm_tpl= next(tissue_tpl for tissue_tpl in tissue_tpls if 'label-WM' in tissue_tpl)
 
-    #7. Atropos segmentation likelihood_model
-    likelihood_model = 'HistogramParzenWindows' if modality =='FLAIR' else 'Gaussian'
-
     message = f"""
+
     -----------------------------
     Anatomical preprocessing workflow parameters:
         * File: {in_file}
         * Modality:                                     {modality}
-        * INU bspline fitting distance:                 {bspline}
+        * INU bspline fitting distance:                 {params["bspline"]}
         * Template:                                     {tpl_id}
             * Path:          {tpl_target_path}
     
@@ -1050,7 +1056,8 @@ def _get_info(in_file):
         * tpl_mask_path:            {tpl_mask_path}
         * tissue_tpls:              {tissue_tpls}
         * wm_tpl:                   {wm_tpl}
+
     """
     config.loggers.workflow.info(message)
 
-    return modality, bspline, tpl_target_path, tpl_mask_path, wm_tpl, tissue_tpls, likelihood_model
+    return modality, params["bspline"], tpl_target_path, tpl_mask_path, wm_tpl, tissue_tpls, params["likelihood_model"]

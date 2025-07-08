@@ -421,7 +421,7 @@ class execution(_Config):
     """IP address where the MRIQC WebAPI is listening."""
     work_dir = Path("work").absolute()
     """Path to a working directory where intermediate results will be available."""
-    write_graph = True
+    write_graph = False
     """Write out the computational graph corresponding to the planned preprocessing."""
 
     _layout = None

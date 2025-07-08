@@ -608,4 +608,3 @@ class HeadMask_review(SimpleInterface):
         self._results["out_file"] = out_file
 
         return runtime
-    
