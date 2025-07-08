@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+#  Modified by Molly Ireland
+#
 r"""
 A Python module to maintain unique, run-wide *MRIQC* settings.
 
@@ -98,6 +100,7 @@ from pathlib import Path
 from time import strftime
 from typing import TYPE_CHECKING, Any, Iterable
 from uuid import uuid4
+from collections import OrderedDict
 
 try:
     # This option is only available with Python 3.8
@@ -141,6 +144,24 @@ if not any(
 
 SUPPORTED_SUFFIXES: tuple[str, ...] = ('T1w', 'T2w', 'FLAIR', 'bold', 'dwi')
 
+ATROPOS_MODELS: dict[str, OrderedDict[str, int]] = {
+    "T1w": OrderedDict([
+        ("csf", 1),
+        ("gm", 2),
+        ("wm", 3),
+    ]),
+    "T2w": OrderedDict([
+        ("csf", 3),
+        ("gm", 2),
+        ("wm", 1),
+    ]),
+    "FLAIR": OrderedDict([
+        ("csf", 1),
+        ("gm", 2),
+        ("wm", 3),
+    ]),
+}
+
 DEFAULT_MEMORY_MIN_GB: float = 0.01
 DSA_MESSAGE: str = """\
 IMPORTANT: Anonymized quality metrics (IQMs) will be submitted to MRIQC's metrics \
@@ -149,20 +170,6 @@ Submission of IQMs can be disabled using the ``--no-sub`` argument. \
 Please visit https://mriqc.readthedocs.io/en/latest/dsa.html to revise MRIQC's \
 Data Sharing Agreement."""
 
-#import configurable settings for testing
-from configparser import ConfigParser
-INI = ConfigParser()
-INI.read('config.ini')
-
-USR_DICT: dict[str, Any] = {
-    'inu_bspline': INI['settings']['bspline'],
-    'inu_mod': INI['settings']['inu_mod'],
-    'bts_smooth': INI['atropos']['mrf_smooth'],
-    'bts_priors': INI['atropos']['prior_weight'],
-    'bts_iters': INI['atropos']['n_iterations'],
-    'bts_convg': INI['atropos']['convergence_threshold'],
-    'bts_model': INI['atropos']['likelihood_model'],
-}
 
 _exec_env: str = os.name
 _docker_ver: str | None = None
@@ -448,9 +455,9 @@ class execution(_Config):
     """Output verbosity."""
     modalities: Iterable[str] = None
     """Filter input dataset by MRI type."""
-    no_sub: bool = False
+    no_sub: bool = True
     """Turn off submission of anonymized quality metrics to Web API."""
-    notrack: bool = False
+    notrack: bool = True
     """Disable the sharing of usage information with developers."""
     output_dir: str | os.PathLike | None = None
     """Folder where derivatives will be stored."""
