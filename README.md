@@ -17,17 +17,51 @@ A pdf of this poster can be found in the [here](docs/mriqc-flair/OHBM_eposter_mr
 ![Poster preview](docs/mriqc-flair/OHBM_eposter_mriqcflair.png)
 
 ## How to Use
+Running works the same as the original MRIQC — FLAIR files must follow BIDS naming conventions e.g. `sub-01_ses-01_FLAIR.nii.gz`
 
-To run MRIQC with FLAIR support:
+## Docker
+
+### Build the Docker Container
+
+Before running, you need to build the custom MRIQC Docker container. From the root of the project, run:
+
+```bash
+docker build -t mriqc-flair .
+```
+#### Run the participant level in subjects 001, 002, and 003:
+
+```bash
+docker run -it --rm \
+  -v <bids_dir>:/data:ro \
+  -v <output_dir>:/out \
+  mriqc-flair \
+  /data /out participant --participant_label 001 002 003
+```
+
+#### Run the group level and report generation on previously processed subjects:
+
+```bash
+docker run -it --rm \
+  -v <bids_dir>:/data:ro \
+  -v <output_dir>:/out \
+  mriqc-flair \
+  /data /out group
+```
+
+> **Note:** If the `--participant_label` argument is not provided, then all BIDS-compliant subjects will be processed and the group-level analysis will automatically be executed without needing to run the group command separately.
+
+---
+
+### Run MRIQC from a Local Development Environment
+
+If you are running MRIQC from a local Python environment with FLAIR support added (e.g., via `pip install -e .`), run:
 
 ```bash
 python3 -m mriqc.cli.run /path/to/bids_dataset /path/to/output participant \
   --modalities FLAIR \
   --no-sub
 ```
-
-*Note:* Files must be BIDS compliant e.g. `*_FLAIR.nii.gz`
-
+> Note: You must have AFNI, ANTs, and FSL installed and accessible in your $PATH for MRIQC to run correctly outside of the Docker container.
 
 ## Acknowledgements
 
@@ -35,4 +69,4 @@ This extension builds on the incredible work of the [MRIQC team](https://mriqc.r
 
 ## License
 
-MIT License. See `LICENSE` for details. Updates made to `NOTICE` file. 
+MIT License. See `LICENSE` for details. Updates made to `NOTICE` file.

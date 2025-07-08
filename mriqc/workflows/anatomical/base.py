@@ -200,13 +200,13 @@ def anat_qc_workflow(name='anatMRIQC'):
     # fmt: off
     workflow.connect([
         (inputnode, get_info, [('in_file', 'in_file'),]),
-        # (inputnode, anat_report_wf, [
-        #     ('in_file', 'inputnode.name_source'),
-        # ]),
+        (inputnode, anat_report_wf, [
+            ('in_file', 'inputnode.name_source'),
+        ]),
         (inputnode, to_ras, [('in_file', 'in_file')]),
-        #(inputnode, iqmswf, [('in_file', 'inputnode.in_file'),
-        #                     ('metadata', 'inputnode.metadata'),
-        #                     ('entities', 'inputnode.entities')]),
+        (inputnode, iqmswf, [('in_file', 'inputnode.in_file'),
+                            ('metadata', 'inputnode.metadata'),
+                            ('entities', 'inputnode.entities')]),
         (get_info, norm, [('modality', 'inputnode.modality'),
                          ('tpl_reference', 'inputnode.reference_image'), 
                          ('tpl_mask', 'inputnode.reference_mask'), 
@@ -233,48 +233,48 @@ def anat_qc_workflow(name='anatMRIQC'):
         (skull_stripping, norm, [
             ('outputnode.out_corrected', 'inputnode.moving_image'),
             ('outputnode.out_mask', 'inputnode.moving_mask')]),
-        # (norm, bts, [('outputnode.out_tpms', 'inputnode.std_tpms')]),
+        (norm, bts, [('outputnode.out_tpms', 'inputnode.std_tpms')]),
         (bts, clean_segs, [
             ('outputnode.out_segm', 'inputnode.segmentation'), 
             ('outputnode.out_pvms', 'inputnode.pvms')]),
-        # (norm, amw, [
-        #     ('outputnode.ind2std_xfm', 'inputnode.ind2std_xfm')]),
-        # (norm, iqmswf, [
-        #     ('outputnode.out_tpms', 'inputnode.std_tpms')]),
-        # (norm, anat_report_wf, ([
-        #     ('outputnode.out_report', 'inputnode.mni_report')])),
+        (norm, amw, [
+            ('outputnode.ind2std_xfm', 'inputnode.ind2std_xfm')]),
+        (norm, iqmswf, [
+            ('outputnode.out_tpms', 'inputnode.std_tpms')]),
+        (norm, anat_report_wf, ([
+            ('outputnode.out_report', 'inputnode.mni_report')])),
         (norm, hmsk, [('outputnode.out_tpms', 'inputnode.in_tpms'), 
                       ('outputnode.ind2std_xfm', 'inputnode.ind2std_xfm'), 
                       ('outputnode.hmask_mni2nat', 'inputnode.mask_tmpl')]),
-        # (to_ras, amw, [('out_file', 'inputnode.in_file')]),
-        # (skull_stripping, amw, [('outputnode.out_mask', 'inputnode.in_mask')]),
-        # (hmsk, amw, [('outputnode.out_file', 'inputnode.head_mask')]),
-        # (to_ras, iqmswf, [('out_file', 'inputnode.in_ras')]),
-        # (skull_stripping, iqmswf, [('outputnode.out_corrected', 'inputnode.inu_corrected'),
-        #                            (ss_bias_field, 'inputnode.in_inu'),
-        #                            ('outputnode.out_mask', 'inputnode.brainmask')]),
-        # (amw, iqmswf, [('outputnode.air_mask', 'inputnode.airmask'),
-        #                ('outputnode.hat_mask', 'inputnode.hatmask'),
-        #                ('outputnode.art_mask', 'inputnode.artmask'),
-        #                ('outputnode.rot_mask', 'inputnode.rotmask')]),
-        # (hmsk, bts, [('outputnode.out_denoised', 'inputnode.in_file')]),
+        (to_ras, amw, [('out_file', 'inputnode.in_file')]),
+        (skull_stripping, amw, [('outputnode.out_mask', 'inputnode.in_mask')]),
+        (hmsk, amw, [('outputnode.out_file', 'inputnode.head_mask')]),
+        (to_ras, iqmswf, [('out_file', 'inputnode.in_ras')]),
+        (skull_stripping, iqmswf, [('outputnode.out_corrected', 'inputnode.inu_corrected'),
+                                   (ss_bias_field, 'inputnode.in_inu'),
+                                   ('outputnode.out_mask', 'inputnode.brainmask')]),
+        (amw, iqmswf, [('outputnode.air_mask', 'inputnode.airmask'),
+                       ('outputnode.hat_mask', 'inputnode.hatmask'),
+                       ('outputnode.art_mask', 'inputnode.artmask'),
+                       ('outputnode.rot_mask', 'inputnode.rotmask')]),
+        (hmsk, bts, [('outputnode.out_denoised', 'inputnode.in_file')]),
         (clean_segs, iqmswf, [('outputnode.out_segm', 'inputnode.segmentation'),
                        ('outputnode.out_pvms', 'inputnode.pvms')]),
-        # (hmsk, iqmswf, [('outputnode.out_file', 'inputnode.headmask')]),
-        # (to_ras, anat_report_wf, [('out_file', 'inputnode.in_ras')]),
-        # (skull_stripping, anat_report_wf, [
-        #     ('outputnode.out_corrected', 'inputnode.inu_corrected'),
-        #     ('outputnode.out_mask', 'inputnode.brainmask')]),
-        # (hmsk, anat_report_wf, [('outputnode.out_file', 'inputnode.headmask')]),
-        # (amw, anat_report_wf, [
-        #     ('outputnode.air_mask', 'inputnode.airmask'),
-        #     ('outputnode.art_mask', 'inputnode.artmask'),
-        #     ('outputnode.rot_mask', 'inputnode.rotmask'),
-        # ]),
-        # (bts, anat_report_wf, [('outputnode.out_segm', 'inputnode.segmentation')]),
-        # (iqmswf, anat_report_wf, [('outputnode.noisefit', 'inputnode.noisefit')]),
-        # (iqmswf, anat_report_wf, [('outputnode.out_file', 'inputnode.in_iqms')]),
-        # (iqmswf, outputnode, [('outputnode.out_file', 'out_json')]),
+        (hmsk, iqmswf, [('outputnode.out_file', 'inputnode.headmask')]),
+        (to_ras, anat_report_wf, [('out_file', 'inputnode.in_ras')]),
+        (skull_stripping, anat_report_wf, [
+            ('outputnode.out_corrected', 'inputnode.inu_corrected'),
+            ('outputnode.out_mask', 'inputnode.brainmask')]),
+        (hmsk, anat_report_wf, [('outputnode.out_file', 'inputnode.headmask')]),
+        (amw, anat_report_wf, [
+            ('outputnode.air_mask', 'inputnode.airmask'),
+            ('outputnode.art_mask', 'inputnode.artmask'),
+            ('outputnode.rot_mask', 'inputnode.rotmask'),
+        ]),
+        (clean_segs, anat_report_wf, [('outputnode.out_segm', 'inputnode.segmentation')]),
+        (iqmswf, anat_report_wf, [('outputnode.noisefit', 'inputnode.noisefit')]),
+        (iqmswf, anat_report_wf, [('outputnode.out_file', 'inputnode.in_iqms')]),
+        (iqmswf, outputnode, [('outputnode.out_file', 'out_json')]),
     ])
     # fmt: on
 
