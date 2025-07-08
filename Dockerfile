@@ -95,6 +95,7 @@ RUN curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc | \
 # Set FSL paths
 ENV FSLDIR="/usr/share/fsl/5.0"
 ENV PATH="$PATH:$FSLDIR/bin"
+ENV LD_LIBRARY_PATH="${FSLDIR}/lib:${LD_LIBRARY_PATH}"
 
 # Installing ANTs 2.3.4 (NeuroDocker build)
 ENV ANTSPATH="/opt/ants/ants-2.4.1/bin/"

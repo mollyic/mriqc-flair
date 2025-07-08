@@ -934,7 +934,6 @@ def gradient_threshold(in_file, brainmask, modality, thresh=15.0, out_file=None,
     mask = np.zeros_like(data, dtype=np.uint8)
     # Increased threshold for FLAIR to suppress background, complementary increase in binary closing
     thresh, iter = (20, 10) if modality == 'FLAIR' else (thresh, 1)
-    print(f"\n\n\nApplying threshold for modality: {modality}\n\t* Thresh: {thresh:.2f}% \n\t* iter {iter} \n\n\n")
     mask[data > thresh] = 1
 
     #Add padding to remove edge effects 
