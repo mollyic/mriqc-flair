@@ -632,7 +632,8 @@ def headmsk_wf(name="HeadMaskWorkflow", omp_nthreads=1):
         (inputnode, enhance, [("in_file", "in_file"),
                               ('modality', "modality"),
                               (("in_tpms", _select_wm), "wm_tpm")]),
-        (inputnode, thresh, [("skinmask", "brainmask")]),
+        (inputnode, thresh, [("skinmask", "brainmask")
+                             ('modality', "modality"),]),
         (inputnode, gradient, [("skinmask", "brainmask")]),
         (inputnode, apply_mask, [("brainmask", "in_mask")]),
         (enhance, gradient, [("out_file", "in_file")]),
@@ -902,7 +903,7 @@ def image_gradient(in_file, brainmask, sigma=4.0, out_file=None):
     return out_file
 
 
-def gradient_threshold(in_file, brainmask, thresh=15.0, out_file=None, aniso=False):
+def gradient_threshold(in_file, brainmask, modality, thresh=15.0, out_file=None, aniso=False):
     """Compute a threshold from the histogram of the magnitude gradient image"""
     import nibabel as nb
     import numpy as np
@@ -931,11 +932,18 @@ def gradient_threshold(in_file, brainmask, thresh=15.0, out_file=None, aniso=Fal
     data = imnii.get_fdata(dtype=np.float32)
 
     mask = np.zeros_like(data, dtype=np.uint8)
+    thresh = np.percentile(data[data != 0], 20) if modality == 'FLAIR' else thresh
     mask[data > thresh] = 1
+
+    #Add padding
+    pad = 100
+    bmask = nb.load(brainmask).get_fdata()
+    bmask = np.pad(bmask, pad, mode='constant', constant_values=0)
+    mask = np.pad(mask, pad, mode='constant', constant_values=0)
     mask = sim.binary_closing(mask, struct, iterations=2).astype(np.uint8)
     mask = sim.binary_erosion(mask, sim.generate_binary_structure(3, 2)).astype(np.uint8)
 
-    segdata = np.asanyarray(nb.load(brainmask).dataobj) > 0
+    segdata = np.asanyarray(bmask) > 0
     segdata = sim.binary_dilation(segdata, struct, iterations=2, border_value=1).astype(np.uint8)
     mask[segdata] = 1
 
@@ -950,7 +958,7 @@ def gradient_threshold(in_file, brainmask, thresh=15.0, out_file=None, aniso=Fal
             artmsk[label_im == label] = 1
 
     mask = sim.binary_fill_holes(mask, struct).astype(np.uint8)  # pylint: disable=no-member
-
+    mask = mask[pad:-pad, pad:-pad, pad:-pad] #remove padding
     out_file = out_file or str(generate_filename(in_file, suffix="gradmask").absolute())
     nb.Nifti1Image(mask, imnii.affine, hdr).to_filename(out_file)
     return out_file
