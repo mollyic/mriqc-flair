@@ -80,9 +80,12 @@ def quicksyn_normalisation(name="QuickSynSpatialNormalization"):
         niu.IdentityInterface(fields=[
             "moving_image", 
             'moving_mask', 
-            'tissue_tpls',
-            'tpl_target_path',
-            'tpl_mask_path',]), 
+            'modality',
+            'tpl_resolution', 
+            'tpl_id', 
+            'tpl_tissues',
+            'reference_image',
+            'reference_mask',]), 
             name="inputnode")
     outputnode = pe.Node(
         niu.IdentityInterface(fields=["out_tpms", "out_report", "ind2std_xfm", 'hmask_mni2nat']),
@@ -138,9 +141,9 @@ def quicksyn_normalisation(name="QuickSynSpatialNormalization"):
     # fmt: off
     workflow.connect([
         (inputnode, norm, [("moving_image", "moving_image"), 
-                           ("tpl_target_path", "fixed_image")]),
+                           ("reference_image", "fixed_image")]),
         (inputnode, tpms_std2t1w, [("moving_image", "reference_image"),
-                                   ("tissue_tpls", "input_image")]),
+                                   ("tpl_tissues", "input_image")]),
         (norm, tpms_std2t1w, [
             ("out_matrix", "transforms")
         ]),
@@ -156,7 +159,6 @@ def quicksyn_normalisation(name="QuickSynSpatialNormalization"):
     # fmt: on
 
     return workflow
-
 
 
 

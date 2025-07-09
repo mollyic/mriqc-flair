@@ -163,9 +163,8 @@ def anat_qc_workflow(name='anatMRIQC'):
     # 4. Spatial Normalization, using ANTs
     norm = spatial_normalization()
     # 4a. QuickSyn spatial normalisation
-    #from mriqc.workflows.anatomical.flair_modules.FLAIR_normalisation_emriqc import spatial_normalization as quicksyn_norm
-    from mriqc.workflows.anatomical.flair_modules.normalisation import quicksyn_normalisation as quicksyn_norm
-    syn_norm = quicksyn_norm()
+    # from mriqc.workflows.anatomical.flair_modules.normalisation import quicksyn_normalisation as quicksyn_norm
+    # #syn_norm = quicksyn_norm()
 
     # 5. Air mask (with and without artifacts)
     amw = airmsk_wf()
@@ -187,11 +186,13 @@ def anat_qc_workflow(name='anatMRIQC'):
                 output_names=[
                     'modality', 
                     'bspline', 
-                    'tpl_target_path', 
-                    'tpl_mask_path',
+                    'tpl_reference', 
+                    'tpl_mask',
                     'wm_tpl', 
                     'tissue_tpls', 
-                    'likelihood_model'
+                    'likelihood_model',
+                    'tpl_id',
+                    'tpl_res'
                     ],
                 ), 
             name = 'get_info')
@@ -203,6 +204,10 @@ def anat_qc_workflow(name='anatMRIQC'):
         (inputnode, anat_report_wf, [
             ('in_file', 'inputnode.name_source'),
         ]),
+        (get_info, skull_stripping, [('bspline', "inputnode.bspline")]),
+        (get_info, hmsk, [('modality', "inputnode.modality")]),
+        (get_info, clean_segs, [('modality', "inputnode.modality")]),
+        (get_info, bts, [("likelihood_model", "inputnode.likelihood_model")]),
         (inputnode, to_ras, [('in_file', 'in_file')]),
         (inputnode, iqmswf, [('in_file', 'inputnode.in_file'),
                             ('metadata', 'inputnode.metadata'),
@@ -215,15 +220,6 @@ def anat_qc_workflow(name='anatMRIQC'):
                          ('tissue_tpls', 'inputnode.tpl_tissues')
                          ]),
         (to_ras, skull_stripping, [('out_file', 'inputnode.in_files')]),
-        (skull_stripping, syn_norm, [
-            ('outputnode.out_corrected', 'inputnode.moving_image'),
-            ('outputnode.out_mask', 'inputnode.moving_mask'), ]),
-        (get_info, syn_norm, [('modality', 'inputnode.modality'),
-                         ('tpl_reference', 'inputnode.reference_image'), 
-                         ('tpl_mask', 'inputnode.reference_mask'), 
-                         ('tpl_res', 'inputnode.tpl_resolution'), 
-                         ('tpl_id', 'inputnode.tpl_id'), 
-                         ('tissue_tpls', 'inputnode.tpl_tissues')]),
         (skull_stripping, hmsk, [
            ('outputnode.out_skin_mask', 'inputnode.skinmask'),
            ('outputnode.out_corrected', 'inputnode.in_file'),
@@ -334,6 +330,7 @@ def spatial_normalization(name='SpatialNormalization'):
             num_threads=config.nipype.omp_nthreads,
             float=config.execution.ants_float,
             generate_report=True,
+            #settings=["mriqc/templates/flair-mni_registration_desc-bspline.json"]
         ),
         name='SpatialNormalization',
         # Request all MultiProc processes when ants_nthreads > n_procs
@@ -359,7 +356,7 @@ def spatial_normalization(name='SpatialNormalization'):
         ApplyTransforms(
             dimension=3,
             default_value=0,
-            interpolation='Linear',
+            interpolation='Gaussian',
             float=config.execution.ants_float,
         ),
         iterfield=['input_image'],
@@ -372,7 +369,7 @@ def spatial_normalization(name='SpatialNormalization'):
         ApplyTransforms(
             dimension=3,
             default_value=0,
-            interpolation='Linear',
+            interpolation='Gaussian',
             float=config.execution.ants_float,
         ),
         name='hmask_mni2nat',
@@ -384,13 +381,20 @@ def spatial_normalization(name='SpatialNormalization'):
         suffix='mask',
         resolution ='2'
         )
-    hmask_mni2nat.inputs.invert_transform_flags = [True]
 
+    def _get_settings(modality):
+        from pathlib import Path
+        if modality.lower() == "flair":
+            settings_path = Path.cwd() / "mriqc" / "templates" / "flair-mni_registration_desc-bspline.json"
+            return [str(settings_path)]
+        return []
+    
     # fmt: off
     workflow.connect([
         (inputnode, norm, [('moving_image', 'moving_image'),
                            ('moving_mask', 'moving_mask'),
-                           ('modality', 'reference')]),
+                           ('modality', 'reference'), 
+                           (('modality', _get_settings), 'settings')]),
         (inputnode, tpms_std2t1w, [('moving_image', 'reference_image'), 
                                    ('tpl_tissues', 'input_image')]),
         (norm, tpms_std2t1w, [
@@ -403,6 +407,7 @@ def spatial_normalization(name='SpatialNormalization'):
             ('out_report', 'out_report'),
         ]),
         (tpms_std2t1w, outputnode, [('output_image', 'out_tpms')]),
+        (hmask_mni2nat, outputnode, [('output_image', 'hmask_mni2nat')]),
     ])
     # fmt: on
 
@@ -636,7 +641,7 @@ def headmsk_wf(name='HeadMaskWorkflow', omp_nthreads=1):
                 'in_file', 
                 'brainmask', 
                 'in_tpms',
-                'skinmask'
+                'skinmask',
                 'modality',   
                 'mask_tmpl', 
                 'ind2std_xfm'
@@ -987,8 +992,8 @@ def _get_info(in_file):
     -------
     modality : Extracted modality from filename
     bspline : B-spline grid distance for N4 bias field correction (400 for FLAIR, 200 otherwise)
-    tpl_target_path : Path to the selected MNI template image
-    tpl_mask_path : Path to the binary brain mask of the selected MNI template.
+    tpl_reference : Path to the selected MNI template image
+    tpl_mask : Path to the binary brain mask of the selected MNI template.
     wm_tpl : Path to the white matter probabilistic segmentation map.
     tissue_tpls : List of paths to probabilistic segmentation maps for CSF, GM, and WM.
     likelihood_model : Tissue segmentation model type for Atropos (e.g., 'HistogramParzenWindows' for FLAIR, 
@@ -1007,7 +1012,7 @@ def _get_info(in_file):
         "T1w":   {
             "bspline": 200, 
             "tpl_id": config.workflow.template_id, 
-            "likelihood_model": "Linear"
+            "likelihood_model": "Gaussian"
             },
     }
     params = modality_params.get(modality, modality_params["T1w"])  # fallback to T1w
@@ -1017,13 +1022,13 @@ def _get_info(in_file):
     tpl_id =params["tpl_id"]
     template_spec = {}
     template_spec["suffix"] = template_spec.get("suffix", modality)
-    tpl_target_path, common_spec = get_template_specs(tpl_id, template_spec=template_spec, fallback=True,)
+    tpl_reference, common_spec = get_template_specs(tpl_id, template_spec=template_spec, fallback=True,)
 
     #4. binary brain mask 
-    tpl_mask_path =  get_template(tpl_id, desc="brain", suffix="mask", **common_spec)
+    tpl_mask =  get_template(tpl_id, desc="brain", suffix="mask", **common_spec)
 
     #5. Check species and configure tpls accordingly 
-    tpl_target_path, tpl_mask_path = ((tpl_target_path, tpl_mask_path) 
+    tpl_reference, tpl_mask = ((tpl_reference, tpl_mask) 
                                       if config.workflow.species.lower() == "human" 
                                       else (str(get_template(tpl_id, suffix="T2w")), 
                                             str(get_template(tpl_id, desc="brain", suffix="mask")[0]))
@@ -1038,6 +1043,9 @@ def _get_info(in_file):
     #7. WM template                                         
     wm_tpl= next(tissue_tpl for tissue_tpl in tissue_tpls if 'label-WM' in tissue_tpl)
 
+    # 7. Get template resolution, default is 1 for FLAIR
+    tpl_res = 'fast' if modality == 'FLAIR' else ['testing', 'fast'][config.execution.debug] 
+
     message = f"""
 
     -----------------------------
@@ -1046,9 +1054,9 @@ def _get_info(in_file):
         * Modality:                                     {modality}
         * INU bspline fitting distance:                 {params["bspline"]}
         * Template:                                     {tpl_id}
-            * Path:          {tpl_target_path}
+            * Path:          {tpl_reference}
             * Template specifications:              {common_spec}
     """
     config.loggers.workflow.info(message)
 
-    return modality, params["bspline"], tpl_target_path, tpl_mask_path, wm_tpl, tissue_tpls, params["likelihood_model"]
+    return modality, params["bspline"], tpl_reference, tpl_mask, wm_tpl, tissue_tpls, params["likelihood_model"], tpl_id, tpl_res
