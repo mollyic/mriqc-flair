@@ -20,6 +20,9 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+# Modified by Molly Ireland
+#
+
 """Encapsulates report generation functions."""
 
 from itertools import product

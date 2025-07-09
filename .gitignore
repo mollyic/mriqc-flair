@@ -78,3 +78,5 @@ work/
 config-.*toml
 output/
 logs/
+work/
+flair_modules/work

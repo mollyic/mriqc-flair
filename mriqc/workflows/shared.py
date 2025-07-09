@@ -34,9 +34,8 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
     from niworkflows.interfaces.nibabel import ApplyMask, IntensityClip
 
     from mriqc.interfaces.synthstrip import SynthStrip
-    from mriqc.config import USR_DICT
+    from nipype.interfaces.fsl import BET
 
-    print(USR_DICT)
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['in_files', 'bspline']), name='inputnode')
     outputnode = pe.Node(
@@ -84,29 +83,13 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
     final_masked = pe.Node(ApplyMask(), name='final_masked')
 
     workflow = pe.Workflow(name=name)
-    message = f"""\
 
-    Function: synthstrip_wf.N4BiasFieldCorrection
-        1. Pre & post N4 modifications: {USR_DICT['inu_mod']}
-        2. Bspline distance: {USR_DICT['inu_bspline']}
 
-    """
-
-    if USR_DICT['inu_mod']:
-        pre_n4.inputs.n_iterations=[50] * 4
-        pre_n4.inputs.convergence_threshold=1e-7
-        pre_n4.inputs.shrink_factor =4
-        post_n4.inputs.convergence_threshold=1e-7
-        post_n4.inputs.shrink_factor = 4
-    if USR_DICT['inu_bspline']:
-        workflow.connect([
-            (inputnode, pre_n4,         [('bspline', 'bspline_fitting_distance')]),
-            (inputnode, post_n4,        [('bspline', 'bspline_fitting_distance')])])
-
-    print(message)
     # fmt: off
     workflow.connect([
         (inputnode, pre_clip, [('in_files', 'in_file')]),
+        (inputnode, pre_n4, [('bspline', 'bspline_fitting_distance')]),
+        (inputnode, post_n4, [('bspline', 'bspline_fitting_distance')]),
         (pre_clip, pre_n4, [('out_file', 'input_image')]),
         (pre_n4, synthstrip, [('output_image', 'in_file')]),
         (synthstrip, post_n4, [('out_mask', 'weight_image')]),
@@ -117,8 +100,8 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         (post_n4, outputnode, [('bias_image', 'bias_image')]),
         (synthstrip, outputnode, [('out_mask', 'out_mask')]),
         (post_n4, outputnode, [('output_image', 'out_corrected')]),
-        #(pre_n4, betted_skin, [('output_image', 'in_file')]),
-        #(betted_skin, outputnode, [('outskin_mask_file', 'out_skin_mask')]),
+        (pre_n4, betted_skin, [('output_image', 'in_file')]),
+        (betted_skin, outputnode, [('outskin_mask_file', 'out_skin_mask')]),
     ])
     # fmt: on
     return workflow
