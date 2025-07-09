@@ -21,6 +21,7 @@
 #     https://www.nipreps.org/community/licensing/
 #
 # Modified by Molly Ireland
+# 
 """PyBIDS tooling."""
 import json
 import os

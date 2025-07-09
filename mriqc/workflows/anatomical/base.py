@@ -226,7 +226,7 @@ def anat_qc_workflow(name="anatMRIQC"):
             ("outputnode.art_mask", "inputnode.artmask"),
             ("outputnode.rot_mask", "inputnode.rotmask"),
         ]),
-        (bts, anat_report_wf, [("outputnode.out_segm", "inputnode.segmentation")]),
+        (clean_segs, anat_report_wf, [("outputnode.out_segm", "inputnode.segmentation")]),
         (iqmswf, anat_report_wf, [("outputnode.noisefit", "inputnode.noisefit")]),
         (iqmswf, anat_report_wf, [("outputnode.out_file", "inputnode.in_iqms")]),
         (iqmswf, outputnode, [("outputnode.out_file", "out_json")]),

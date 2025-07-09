@@ -134,10 +134,24 @@ logging.addLevelName(25, "IMPORTANT")  # Add a new level between INFO and WARNIN
 logging.addLevelName(15, "VERBOSE")  # Add a new level between INFO and DEBUG
 
 SUPPORTED_SUFFIXES = ("T1w", "T2w", "FLAIR", "bold", "dwi")
-ATROPOS_MODELS = {"T1w": OrderedDict([("csf", 1), ("gm", 2), ("wm", 3)]),
-                    "T2w": OrderedDict([("csf", 3), ("gm", 2), ("wm", 1)]),
-                    "FLAIR": OrderedDict([("csf", 1), ("gm", 2), ("wm", 3)])}
 
+ATROPOS_MODELS: dict[str, OrderedDict[str, int]] = {
+    "T1w": OrderedDict([
+        ("csf", 1),
+        ("gm", 2),
+        ("wm", 3),
+    ]),
+    "T2w": OrderedDict([
+        ("csf", 3),
+        ("gm", 2),
+        ("wm", 1),
+    ]),
+    "FLAIR": OrderedDict([
+        ("csf", 1),
+        ("gm", 2),
+        ("wm", 3),
+    ]),
+}
 DEFAULT_MEMORY_MIN_GB = 0.01
 DSA_MESSAGE = """\
 IMPORTANT: Anonymized quality metrics (IQMs) will be submitted to MRIQC's metrics \

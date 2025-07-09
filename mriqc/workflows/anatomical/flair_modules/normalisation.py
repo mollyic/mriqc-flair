@@ -1,12 +1,22 @@
 
 
 
+"""
+Extensions to MRIQC spatial normalization to support FLAIR images.
 
-import niworkflows.interfaces.reportlets.base as nrb
+Includes wrapper classes for ANTs registration and reporting interfaces,
+as well as custom logic for downloading or registering FLAIR templates 
+(GG853) into TemplateFlow.
+"""
+
+from niworkflows.interfaces.reportlets import base as nrb
 from nipype.interfaces.ants import (RegistrationSynQuick)
 from nipype.interfaces.ants.registration import (RegistrationSynQuickOutputSpec, RegistrationSynQuickInputSpec)
 from nipype.interfaces.mixins import reporting
-
+import urllib
+from pathlib import Path
+import shutil
+from typing import Optional, List
 
 class _RegistrationSynQuickInputSpecRPT(nrb._SVGReportCapableInputSpec, RegistrationSynQuickInputSpec):
     pass
@@ -45,11 +55,6 @@ class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
         )
 
         return super()._post_run_hook(runtime)
-    
-import urllib
-from pathlib import Path
-import shutil
-from typing import Optional, List
 
 def _download_file(url: str, output_path: str) -> None:
     urllib.request.urlretrieve(url, output_path)
@@ -176,5 +181,7 @@ def _get_custom_templates(modality: str = 'FLAIR',
         tpl_license.write_text(license_text)
 
 if __name__ == "__main__":
+    """Run the FLAIR template check/download script"""
+
     print("Running FLAIR template check/download...")
     _get_custom_templates()
