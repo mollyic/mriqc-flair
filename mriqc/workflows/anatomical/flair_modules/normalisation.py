@@ -3,7 +3,18 @@ import urllib.request
 from pathlib import Path
 from typing import List, Optional
 
+
+from nipype.interfaces import utility as niu
+from nipype.interfaces.ants import RegistrationSynQuick
+from nipype.interfaces.ants.registration import (
+    RegistrationSynQuickInputSpec,
+    RegistrationSynQuickOutputSpec,
+)
 from nipype.interfaces.base import traits
+from nipype.interfaces.mixins import reporting
+from nipype.pipeline import engine as pe
+from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+
 from niworkflows.interfaces.norm import (
     NIWORKFLOWS_LOG,
     SpatialNormalization,
@@ -13,6 +24,141 @@ from niworkflows.interfaces.reportlets import base as nrb
 from niworkflows.interfaces.reportlets.registration import (
     _SpatialNormalizationOutputSpecRPT,
 )
+
+from mriqc import config
+
+
+class _RegistrationSynQuickInputSpecRPT(nrb._SVGReportCapableInputSpec, RegistrationSynQuickInputSpec):
+    pass
+
+class _RegistrationSynQuickOutputSpecRPT(reporting.ReportCapableOutputSpec, RegistrationSynQuickOutputSpec):
+    pass
+class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
+    """
+    Custom report-capable interface for ANTs RegistrationSynQuick.
+
+    This class adds SVG report generation to the lightweight RegistrationSynQuick 
+    interface, using B-spline SyN registration [Tustison2013]. 
+
+    .. [Tustison2013] Tustison NJ, Avants BB., *Explicit B-spline regularization in 
+        diffeomorphic image registration*, Front Neuroinform 7(39), 2013 
+        doi:`10.3389/fninf.2013.00039 <http://dx.doi.org/10.3389/fninf.2013.00039>`_.
+
+    Created by Molly Ireland
+    """
+
+    input_spec = _RegistrationSynQuickInputSpecRPT
+    output_spec = _RegistrationSynQuickOutputSpecRPT
+    def _post_run_hook(self, runtime):
+        from mriqc import config
+
+        # Get arguments from ANTS
+        self._fixed_image = self.inputs.fixed_image
+        if isinstance(self._fixed_image, (list, tuple)):
+            self._fixed_image = self.inputs.fixed_image[0]
+
+        self._moving_image = self.aggregate_outputs(runtime=runtime).warped_image
+        config.loggers.workflow.info(
+            'Report - setting fixed (%s) and moving (%s) images',
+            self._fixed_image,
+            self._moving_image,
+        )
+
+        return super()._post_run_hook(runtime)
+
+
+def quicksyn_normalisation(name='QuickSynSpatialNormalization'):
+    """Create a simplied workflow to perform spatial normalization with Ants QuickSyn."""
+    from templateflow.api import get as get_template
+
+    from mriqc.workflows.anatomical.flair_modules.normalisation import (
+        RegistrationSynQuickRPT as RobustMNINormalization,
+    )
+    # Define workflow interface
+    workflow = pe.Workflow(name=name)
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=[
+            'moving_image',
+            'moving_mask',
+            'modality',
+            'tpl_resolution',
+            'tpl_id',
+            'tpl_tissues',
+            'reference_image',
+            'reference_mask',]),
+            name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['out_tpms', 'out_report', 'ind2std_xfm', 'hmask_mni2nat']),
+        name='outputnode',
+    )
+
+    # Spatial normalization
+    norm = pe.Node(
+        RobustMNINormalization(
+            dimension=3,
+            num_threads=config.nipype.omp_nthreads,
+            transform_type = 'b',
+            generate_report=True,
+        ),
+        name='SpatialNormalization',
+        # Request all MultiProc processes when ants_nthreads > n_procs
+        num_threads=config.nipype.omp_nthreads,
+        mem_gb=3,
+    )
+
+    # Project standard TPMs into T1w space
+    tpms_std2t1w = pe.MapNode(
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            interpolation='Linear',
+            float=config.execution.ants_float,
+        ),
+        iterfield=['input_image'],
+        name='tpms_std2t1w',
+    )
+    tpms_std2t1w.inputs.invert_transform_flags = [True]
+
+    # Project standard headmask into native space
+    hmask_mni2nat = pe.Node(
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            interpolation='Linear',
+            float=config.execution.ants_float,
+        ),
+        name='hmask_mni2nat'
+        )
+
+    hmask_mni2nat.inputs.input_image = get_template(
+        template='MNI152Lin',
+        desc='head',
+        suffix='mask',
+        resolution ='2'
+        )
+    hmask_mni2nat.inputs.invert_transform_flags = [True]
+
+    # fmt: off
+    workflow.connect([
+        (inputnode, norm, [('moving_image', 'moving_image'),
+                           ('reference_image', 'fixed_image')]),
+        (inputnode, tpms_std2t1w, [('moving_image', 'reference_image'),
+                                   ('tpl_tissues', 'input_image')]),
+        (norm, tpms_std2t1w, [
+            ('out_matrix', 'transforms')
+        ]),
+        (norm, outputnode, [
+            ('out_matrix', 'ind2std_xfm'),
+            ('out_report', 'out_report'),
+        ]),
+        (tpms_std2t1w, outputnode, [('output_image', 'out_tpms')]),
+        (inputnode, hmask_mni2nat, [('moving_image', 'reference_image')]),
+        (norm, hmask_mni2nat, [('out_matrix', 'transforms')]),
+        (hmask_mni2nat, outputnode, [('output_image', 'hmask_mni2nat')]),
+    ])
+    # fmt: on
+
+    return workflow
 
 
 class _WrapSpatialNormalizationInputSpec(_SpatialNormalizationInputSpec):
@@ -186,8 +332,8 @@ def _get_custom_templates(modality: str = 'FLAIR',
     if not tpl_license.exists():
         tpl_license.write_text(license_text)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     """Run the FLAIR template check/download script"""
 
-    print("Running FLAIR template check/download...")
+    print('Running FLAIR template check/download...')
     _get_custom_templates()

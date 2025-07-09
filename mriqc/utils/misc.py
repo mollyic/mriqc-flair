@@ -20,7 +20,7 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
-# Modified by Molly Ireland 
+# Modified by Molly Ireland
 #
 """Helper functions."""
 

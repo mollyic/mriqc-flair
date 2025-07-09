@@ -35,7 +35,6 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
 
     from mriqc.config import USR_DICT
     from mriqc.interfaces.synthstrip import SynthStrip
-    from nipype.interfaces.fsl import BET
 
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['in_files', 'bspline']), name='inputnode')

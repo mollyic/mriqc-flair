@@ -96,13 +96,13 @@ from __future__ import annotations
 import os
 import pickle
 import sys
+from collections import OrderedDict
 from collections.abc import Iterable
 from contextlib import suppress
 from pathlib import Path
 from time import strftime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
-from collections import OrderedDict
 
 try:
     # This option is only available with Python 3.8
@@ -147,20 +147,20 @@ if not any(
 SUPPORTED_SUFFIXES: tuple[str, ...] = ('T1w', 'T2w', 'FLAIR', 'bold', 'dwi')
 
 ATROPOS_MODELS: dict[str, OrderedDict[str, int]] = {
-    "T1w": OrderedDict([
-        ("csf", 1),
-        ("gm", 2),
-        ("wm", 3),
+    'T1w': OrderedDict([
+        ('csf', 1),
+        ('gm', 2),
+        ('wm', 3),
     ]),
-    "T2w": OrderedDict([
-        ("csf", 3),
-        ("gm", 2),
-        ("wm", 1),
+    'T2w': OrderedDict([
+        ('csf', 3),
+        ('gm', 2),
+        ('wm', 1),
     ]),
-    "FLAIR": OrderedDict([
-        ("csf", 1),
-        ("gm", 2),
-        ("wm", 3),
+    'FLAIR': OrderedDict([
+        ('csf', 1),
+        ('gm', 2),
+        ('wm', 3),
     ]),
 }
 

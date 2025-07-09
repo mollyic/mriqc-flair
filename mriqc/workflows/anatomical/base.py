@@ -66,13 +66,14 @@ from mriqc.interfaces import (
     ArtifactMask,
     ComputeQI2,
     ConformImage,
+    HeadMask_review,
     IQMFileSink,
     RotationMask,
     StructuralQC,
 )
-from mriqc.workflows.anatomical.flair_modules.clean_segs_ants import clean_tissue_segs
 from mriqc.interfaces.reports import AddProvenance
 from mriqc.messages import BUILDING_WORKFLOW
+from mriqc.workflows.anatomical.flair_modules.clean_segs_ants import clean_tissue_segs
 from mriqc.workflows.anatomical.output import init_anat_report_wf
 from mriqc.workflows.utils import get_fwhmx
 
@@ -181,20 +182,20 @@ def anat_qc_workflow(name='anatMRIQC'):
     # Get information about the input file
     get_info = pe.Node(
             niu.Function(
-                function = _get_info, 
-                input_names=["in_file"],
+                function = _get_info,
+                input_names=['in_file'],
                 output_names=[
-                    'modality', 
-                    'bspline', 
-                    'tpl_reference', 
+                    'modality',
+                    'bspline',
+                    'tpl_reference',
                     'tpl_mask',
-                    'wm_tpl', 
-                    'tissue_tpls', 
+                    'wm_tpl',
+                    'tissue_tpls',
                     'likelihood_model',
                     'tpl_id',
                     'tpl_res'
                     ],
-                ), 
+                ),
             name = 'get_info')
 
     # Connect all nodes
@@ -204,19 +205,19 @@ def anat_qc_workflow(name='anatMRIQC'):
         (inputnode, anat_report_wf, [
             ('in_file', 'inputnode.name_source'),
         ]),
-        (get_info, skull_stripping, [('bspline', "inputnode.bspline")]),
-        (get_info, hmsk, [('modality', "inputnode.modality")]),
-        (get_info, clean_segs, [('modality', "inputnode.modality")]),
-        (get_info, bts, [("likelihood_model", "inputnode.likelihood_model")]),
+        (get_info, skull_stripping, [('bspline', 'inputnode.bspline')]),
+        (get_info, hmsk, [('modality', 'inputnode.modality')]),
+        (get_info, clean_segs, [('modality', 'inputnode.modality')]),
+        (get_info, bts, [('likelihood_model', 'inputnode.likelihood_model')]),
         (inputnode, to_ras, [('in_file', 'in_file')]),
         (inputnode, iqmswf, [('in_file', 'inputnode.in_file'),
                             ('metadata', 'inputnode.metadata'),
                             ('entities', 'inputnode.entities')]),
         (get_info, norm, [('modality', 'inputnode.modality'),
-                         ('tpl_reference', 'inputnode.reference_image'), 
-                         ('tpl_mask', 'inputnode.reference_mask'), 
-                         ('tpl_res', 'inputnode.tpl_resolution'), 
-                         ('tpl_id', 'inputnode.tpl_id'), 
+                         ('tpl_reference', 'inputnode.reference_image'),
+                         ('tpl_mask', 'inputnode.reference_mask'),
+                         ('tpl_res', 'inputnode.tpl_resolution'),
+                         ('tpl_id', 'inputnode.tpl_id'),
                          ('tissue_tpls', 'inputnode.tpl_tissues')
                          ]),
         (to_ras, skull_stripping, [('out_file', 'inputnode.in_files')]),
@@ -231,7 +232,7 @@ def anat_qc_workflow(name='anatMRIQC'):
             ('outputnode.out_mask', 'inputnode.moving_mask')]),
         (norm, bts, [('outputnode.out_tpms', 'inputnode.std_tpms')]),
         (bts, clean_segs, [
-            ('outputnode.out_segm', 'inputnode.segmentation'), 
+            ('outputnode.out_segm', 'inputnode.segmentation'),
             ('outputnode.out_pvms', 'inputnode.pvms')]),
         (norm, amw, [
             ('outputnode.ind2std_xfm', 'inputnode.ind2std_xfm')]),
@@ -239,8 +240,8 @@ def anat_qc_workflow(name='anatMRIQC'):
             ('outputnode.out_tpms', 'inputnode.std_tpms')]),
         (norm, anat_report_wf, ([
             ('outputnode.out_report', 'inputnode.mni_report')])),
-        (norm, hmsk, [('outputnode.out_tpms', 'inputnode.in_tpms'), 
-                      ('outputnode.ind2std_xfm', 'inputnode.ind2std_xfm'), 
+        (norm, hmsk, [('outputnode.out_tpms', 'inputnode.in_tpms'),
+                      ('outputnode.ind2std_xfm', 'inputnode.ind2std_xfm'),
                       ('outputnode.hmask_mni2nat', 'inputnode.mask_tmpl')]),
         (to_ras, amw, [('out_file', 'inputnode.in_file')]),
         (skull_stripping, amw, [('outputnode.out_mask', 'inputnode.in_mask')]),
@@ -298,6 +299,8 @@ def anat_qc_workflow(name='anatMRIQC'):
 
 def spatial_normalization(name='SpatialNormalization'):
     """Create a simplified workflow to perform fast spatial normalization."""
+    from pathlib import Path
+
     from mriqc.workflows.anatomical.flair_modules.normalisation import (
         WrapSpatialNormalizationRPT as RobustMNINormalization,
     )
@@ -341,7 +344,7 @@ def spatial_normalization(name='SpatialNormalization'):
         workflow.connect([
         (inputnode, norm, [('reference_mask', 'reference_mask'),
                            ('reference_image', 'reference_image'),
-                           ('tpl_resolution', 'flavor'), 
+                           ('tpl_resolution', 'flavor'),
                            ('tpl_id', 'template'), ])
                            ])
     else:
@@ -382,19 +385,18 @@ def spatial_normalization(name='SpatialNormalization'):
         )
 
     def _get_settings(modality):
-        from pathlib import Path
-        if modality.lower() == "flair":
-            settings_path = Path.cwd() / "mriqc" / "templates" / "flair-mni_registration_desc-bspline.json"
+        if modality.lower() == 'flair':
+            settings_path = Path.cwd() / 'mriqc' / 'templates' / 'flair-mni_registration_desc-bspline.json'
             return [str(settings_path)]
         return []
-    
+
     # fmt: off
     workflow.connect([
         (inputnode, norm, [('moving_image', 'moving_image'),
                            ('moving_mask', 'moving_mask'),
-                           ('modality', 'reference'), 
+                           ('modality', 'reference'),
                            (('modality', _get_settings), 'settings')]),
-        (inputnode, tpms_std2t1w, [('moving_image', 'reference_image'), 
+        (inputnode, tpms_std2t1w, [('moving_image', 'reference_image'),
                                    ('tpl_tissues', 'input_image')]),
         (norm, tpms_std2t1w, [
             ('inverse_composite_transform', 'transforms'),
@@ -592,7 +594,7 @@ def compute_iqms(name='ComputeIQMs'):
         (inputnode, getqi2, [('in_ras', 'in_file'),
                              ('hatmask', 'air_msk')]),
         (inputnode, homog, [('inu_corrected', 'in_file'),
-                            (('pvms', _getwm), 'wm_mask'),  
+                            (('pvms', _getwm), 'wm_mask'),
                             (('in_file', _get_mod), 'modality')]),
         (inputnode, measures, [('in_inu', 'in_bias'),
                                ('in_ras', 'in_file'),
@@ -637,15 +639,15 @@ def headmsk_wf(name='HeadMaskWorkflow', omp_nthreads=1):
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                'in_file', 
-                'brainmask', 
+                'in_file',
+                'brainmask',
                 'in_tpms',
                 'skinmask',
-                'modality',   
-                'mask_tmpl', 
+                'modality',
+                'mask_tmpl',
                 'ind2std_xfm'
                 ]
-            ), 
+            ),
         name='inputnode'
     )
 
@@ -693,7 +695,7 @@ def headmsk_wf(name='HeadMaskWorkflow', omp_nthreads=1):
 
     review = pe.Node(
         HeadMask_review(),
-        name = 'ReviewMask',            
+        name = 'ReviewMask',
         )
 
     # fmt: off
@@ -701,7 +703,7 @@ def headmsk_wf(name='HeadMaskWorkflow', omp_nthreads=1):
         (inputnode, enhance, [('in_file', 'in_file'),
                               ('modality', 'modality'),
                               (('in_tpms', _select_wm), 'wm_tpm')]),
-        (inputnode, thresh, [('skinmask', 'brainmask'),   
+        (inputnode, thresh, [('skinmask', 'brainmask'),
                              ('modality', 'modality'),]),
         (inputnode, gradient, [('skinmask', 'brainmask')]),
         (inputnode, apply_mask, [('brainmask', 'in_mask')]),
@@ -710,7 +712,7 @@ def headmsk_wf(name='HeadMaskWorkflow', omp_nthreads=1):
         (enhance, apply_mask, [('out_file', 'in_file')]),
         (thresh, review, [('out_file', 'hmask')]),
         (inputnode, review, [('mask_tmpl', 'hmask_mni2nat'),
-                             ('ind2std_xfm', 'ind2std_xfm')]),   
+                             ('ind2std_xfm', 'ind2std_xfm')]),
         (review, outputnode, [('out_file', 'out_file')]),
         (apply_mask, outputnode, [('out_file', 'out_denoised')]),
     ])
@@ -819,7 +821,7 @@ def _enhance(in_file, wm_tpm, modality, out_file=None):
     imnii = nb.load(in_file)
     data = imnii.get_fdata(dtype=np.float32)
     # Increase suppression of high-intensity WM voxels: improving FLAIR tissue segmentation
-    thresh =  99.95 if modality.lower() == "flair" else 99.98
+    thresh =  99.95 if modality.lower() == 'flair' else 99.98
     range_max = np.percentile(data[data > 0], thresh)
     excess = data > range_max
 
@@ -901,7 +903,7 @@ def gradient_threshold(in_file, brainmask, modality, thresh=15.0, out_file=None,
     thresh, iter = (20, 10) if modality == 'FLAIR' else (thresh, 1)
     mask[data > thresh] = 1
 
-    #Add padding to remove edge effects 
+    #Add padding to remove edge effects
     pad = 100
     bmask = nb.load(brainmask).get_fdata()
     bmask = np.pad(bmask, pad, mode='constant', constant_values=0)
@@ -975,6 +977,9 @@ def percentile_enhanced(in_arr, tissue_arr, percentile):
 
 def _get_info(in_file):
     from niworkflows.utils.misc import get_template_specs
+    from templateflow.api import get as get_template
+
+    from mriqc import config
     from mriqc.workflows.anatomical.base import _get_mod
     from mriqc.workflows.anatomical.flair_modules.normalisation import _get_custom_templates
 
@@ -1000,48 +1005,48 @@ def _get_info(in_file):
     #1. Get modality
     modality = _get_mod(in_file)
 
-    #2. Get bspline, atropos segmentation likelihood_model, MNI template ID  
+    #2. Get bspline, atropos segmentation likelihood_model, MNI template ID
     modality_params = {
-        "FLAIR": {
-            "bspline": 400, 
-            "tpl_id": "GG853", 
-            "likelihood_model": "HistogramParzenWindows"},
-        "T1w":   {
-            "bspline": 200, 
-            "tpl_id": config.workflow.template_id, 
-            "likelihood_model": "Gaussian"
+        'FLAIR': {
+            'bspline': 400,
+            'tpl_id': 'GG853',
+            'likelihood_model': 'HistogramParzenWindows'},
+        'T1w':   {
+            'bspline': 200,
+            'tpl_id': config.workflow.template_id,
+            'likelihood_model': 'Gaussian'
             },
     }
-    params = modality_params.get(modality, modality_params["T1w"])  # fallback to T1w
+    params = modality_params.get(modality, modality_params['T1w'])  # fallback to T1w
     #3. Get MNI template
     if modality == 'FLAIR':
        _get_custom_templates()
-    tpl_id =params["tpl_id"]
+    tpl_id =params['tpl_id']
     template_spec = {}
-    template_spec["suffix"] = template_spec.get("suffix", modality)
+    template_spec['suffix'] = template_spec.get('suffix', modality)
     tpl_reference, common_spec = get_template_specs(tpl_id, template_spec=template_spec, fallback=True,)
 
-    #4. binary brain mask 
-    tpl_mask =  get_template(tpl_id, desc="brain", suffix="mask", **common_spec)
+    #4. binary brain mask
+    tpl_mask =  get_template(tpl_id, desc='brain', suffix='mask', **common_spec)
 
-    #5. Check species and configure tpls accordingly 
-    tpl_reference, tpl_mask = ((tpl_reference, tpl_mask) 
-                                      if config.workflow.species.lower() == "human" 
-                                      else (str(get_template(tpl_id, suffix="T2w")), 
-                                            str(get_template(tpl_id, desc="brain", suffix="mask")[0]))
+    #5. Check species and configure tpls accordingly
+    tpl_reference, tpl_mask = ((tpl_reference, tpl_mask)
+                                      if config.workflow.species.lower() == 'human'
+                                      else (str(get_template(tpl_id, suffix='T2w')),
+                                            str(get_template(tpl_id, desc='brain', suffix='mask')[0]))
                                             )
     #6. Get tissue templates
-    tissue_tpls = [str(p) 
+    tissue_tpls = [str(p)
                    for p in get_template(tpl_id,
-                                         suffix="probseg",
-                                         resolution=(1 if config.workflow.species.lower() == "human" else None),
-                                         label=["CSF", "GM", "WM"],
+                                         suffix='probseg',
+                                         resolution=(1 if config.workflow.species.lower() == 'human' else None),
+                                         label=['CSF', 'GM', 'WM'],
                                          )]
-    #7. WM template                                         
+    #7. WM template
     wm_tpl= next(tissue_tpl for tissue_tpl in tissue_tpls if 'label-WM' in tissue_tpl)
 
     # 7. Get template resolution, default is 1 for FLAIR
-    tpl_res = 'fast' if modality == 'FLAIR' else ['testing', 'fast'][config.execution.debug] 
+    tpl_res = 'fast' if modality == 'FLAIR' else ['testing', 'fast'][config.execution.debug]
 
     message = f"""
 
@@ -1056,4 +1061,4 @@ def _get_info(in_file):
     """
     config.loggers.workflow.info(message)
 
-    return modality, params["bspline"], tpl_reference, tpl_mask, wm_tpl, tissue_tpls, params["likelihood_model"], tpl_id, tpl_res
+    return modality, params['bspline'], tpl_reference, tpl_mask, wm_tpl, tissue_tpls, params['likelihood_model'], tpl_id, tpl_res

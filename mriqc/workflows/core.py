@@ -42,7 +42,7 @@ def init_mriqc_wf():
     from mriqc import config
 
     # Create parent workflow
-    workflow = Workflow(name="mriqc-flair_wf")
+    workflow = Workflow(name='mriqc-flair_wf')
     workflow.base_dir = config.execution.work_dir
 
     # Create fMRI QC workflow
