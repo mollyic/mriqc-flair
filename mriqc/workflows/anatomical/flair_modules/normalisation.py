@@ -1,15 +1,8 @@
-"""
-Extensions to MRIQC spatial normalization to support FLAIR images.
-
-Includes wrapper classes for ANTs registration and reporting interfaces,
-as well as custom logic for downloading or registering FLAIR templates 
-(GG853) into TemplateFlow.
-"""
-
 import shutil
 import urllib.request
 from pathlib import Path
 from typing import List, Optional
+
 
 from nipype.interfaces import utility as niu
 from nipype.interfaces.ants import RegistrationSynQuick
@@ -21,6 +14,7 @@ from nipype.interfaces.base import traits
 from nipype.interfaces.mixins import reporting
 from nipype.pipeline import engine as pe
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+
 from niworkflows.interfaces.norm import (
     NIWORKFLOWS_LOG,
     SpatialNormalization,
@@ -165,7 +159,6 @@ def quicksyn_normalisation(name='QuickSynSpatialNormalization'):
     # fmt: on
 
     return workflow
-
 
 
 class _WrapSpatialNormalizationInputSpec(_SpatialNormalizationInputSpec):

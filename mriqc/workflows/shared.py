@@ -33,6 +33,7 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
     from nipype.interfaces.fsl import BET
     from niworkflows.interfaces.nibabel import ApplyMask, IntensityClip
 
+    from mriqc.config import USR_DICT
     from mriqc.interfaces.synthstrip import SynthStrip
 
 
