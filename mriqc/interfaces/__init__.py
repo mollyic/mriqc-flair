@@ -31,9 +31,9 @@ from mriqc.interfaces.anatomical import (
     ArtifactMask,
     ComputeQI2,
     Harmonize,
+    HeadMask_review,
     RotationMask,
     StructuralQC,
-    HeadMask_review,
 )
 from mriqc.interfaces.bids import IQMFileSink
 from mriqc.interfaces.common import ConformImage, EnsureSize

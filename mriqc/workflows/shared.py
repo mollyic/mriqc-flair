@@ -29,12 +29,11 @@ from nipype.pipeline import engine as pe
 
 def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
     """Create a brain-extraction workflow using SynthStrip."""
-    from nipype.interfaces.fsl import BET
     from nipype.interfaces.ants import N4BiasFieldCorrection
+    from nipype.interfaces.fsl import BET
     from niworkflows.interfaces.nibabel import ApplyMask, IntensityClip
 
     from mriqc.interfaces.synthstrip import SynthStrip
-    from nipype.interfaces.fsl import BET
 
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['in_files', 'bspline']), name='inputnode')
