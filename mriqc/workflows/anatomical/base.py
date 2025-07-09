@@ -68,7 +68,6 @@ from mriqc.interfaces import (
     ConformImage,
     IQMFileSink,
     RotationMask,
-    HeadMask_review,
     StructuralQC,
 )
 from mriqc.workflows.anatomical.flair_modules.clean_segs_ants import clean_tissue_segs
@@ -76,6 +75,7 @@ from mriqc.interfaces.reports import AddProvenance
 from mriqc.messages import BUILDING_WORKFLOW
 from mriqc.workflows.anatomical.output import init_anat_report_wf
 from mriqc.workflows.utils import get_fwhmx
+
 
 def anat_qc_workflow(name='anatMRIQC'):
     """
@@ -91,7 +91,7 @@ def anat_qc_workflow(name='anatMRIQC'):
             wf = anat_qc_workflow()
 
     """
-    #from mriqc.workflows import init_atropos_wf 
+    #from mriqc.workflows import init_atropos_wf
     from mriqc.workflows.shared import synthstrip_wf
 
 
@@ -301,7 +301,6 @@ def spatial_normalization(name='SpatialNormalization'):
     from mriqc.workflows.anatomical.flair_modules.normalisation import (
         WrapSpatialNormalizationRPT as RobustMNINormalization,
     )
-    from pathlib import Path
 
     # Have the template id handy
     tpl_id = config.workflow.template_id
@@ -309,13 +308,13 @@ def spatial_normalization(name='SpatialNormalization'):
     # Define workflow interface
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=['moving_image', 
-                                      'moving_mask', 
-                                      'modality', 
-                                      'reference_mask', 
-                                      'reference_image', 
-                                      'tpl_resolution', 
-                                      'tpl_id', 
+        niu.IdentityInterface(fields=['moving_image',
+                                      'moving_mask',
+                                      'modality',
+                                      'reference_mask',
+                                      'reference_image',
+                                      'tpl_resolution',
+                                      'tpl_id',
                                       'tpl_tissues']),
         name='inputnode',
     )
@@ -348,7 +347,7 @@ def spatial_normalization(name='SpatialNormalization'):
     else:
         norm.inputs.reference_image = str(get_template(tpl_id, suffix='T2w'))
         norm.inputs.reference_mask = str(get_template(tpl_id, desc='brain', suffix='mask')[0])
-        norm.inputs.flavor = ['testing', 'fast'][config.execution.debug] 
+        norm.inputs.flavor = ['testing', 'fast'][config.execution.debug]
         norm.inputs.template = tpl_id
 
     # Project standard TPMs into T1w space
@@ -975,8 +974,6 @@ def percentile_enhanced(in_arr, tissue_arr, percentile):
 
 
 def _get_info(in_file):
-    from mriqc import config
-    from templateflow.api import get as get_template
     from niworkflows.utils.misc import get_template_specs
     from mriqc.workflows.anatomical.base import _get_mod
     from mriqc.workflows.anatomical.flair_modules.normalisation import _get_custom_templates

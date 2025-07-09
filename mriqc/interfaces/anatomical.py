@@ -321,7 +321,7 @@ class ArtifactMask(SimpleInterface):
 
         hmdata = np.bool_(nb.load(self.inputs.head_mask).dataobj)
         #removed from current version of mriqc: check orig code for reference
-        #hmdata = nd.binary_dilation(hmdata, border_value=0, structure=nd.generate_binary_structure(3, 2),iterations=1) 
+        #hmdata = nd.binary_dilation(hmdata, border_value=0, structure=nd.generate_binary_structure(3, 2),iterations=1)
         # Calculate distance to border
         dist = nd.morphology.distance_transform_edt(~hmdata)
 
