@@ -237,8 +237,7 @@ def _get_custom_templates(modality: str = 'FLAIR',
     from pathlib import Path
 
     from templateflow import conf
-
-
+    from templateflow.api import get as get_template
 
     license_text = """\
     Copyright (c) 2012 Anderson M. Winkler, Peter Kochunov, David C. Glahn.
@@ -284,16 +283,16 @@ def _get_custom_templates(modality: str = 'FLAIR',
                            r'label-WM.*probseg\.nii(\.gz)?$',
                            r'label-GM.*probseg\.nii(\.gz)?$']]
 
+    tpl_mask =  get_template('MNI152NLin2009cAsymm', desc='brain', suffix='mask', resolution ='1')
+
     # Check if templateflow directory is present
     if tf_tpl_dir.exists():
-
         matches = [fname for fname in tf_tpl_dir.rglob('*') for ptn in tpl_patterns if re.match(ptn, str(fname.name))]
         print(f'Template {template_id} already exists in the templateflow database. \nDirectory: {tf_tpl_dir}')
         if len(matches) >= len(tpl_patterns):
-            print(f'Found {len(matches)}/4 matches')
+            print(f'Found {len(matches)}/4 matches for {template_id}')
         else:
             print('Insufficient files in local templateflow directory, attempting to source...')
-
 
     if not template_dir:
         # Download the template files if template_id is GG853
