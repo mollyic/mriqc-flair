@@ -332,7 +332,6 @@ def spatial_normalization(name='SpatialNormalization'):
             num_threads=config.nipype.omp_nthreads,
             float=config.execution.ants_float,
             generate_report=True,
-            #settings=["mriqc/templates/flair-mni_registration_desc-bspline.json"]
         ),
         name='SpatialNormalization',
         # Request all MultiProc processes when ants_nthreads > n_procs
@@ -385,6 +384,7 @@ def spatial_normalization(name='SpatialNormalization'):
         )
 
     def _get_settings(modality):
+        from pathlib import Path
         if modality.lower() == 'flair':
             settings_path = Path.cwd() / 'mriqc' / 'templates' / 'flair-mni_registration_desc-bspline.json'
             return [str(settings_path)]
