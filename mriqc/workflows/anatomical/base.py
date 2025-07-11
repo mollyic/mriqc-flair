@@ -949,6 +949,7 @@ def _get_info(in_file):
     from mriqc import config
     from mriqc.workflows.anatomical.base import _get_mod
     from mriqc.workflows.anatomical.flair_modules.normalisation import _get_custom_templates
+    from traits.api import Undefined
 
     """
     Extracts image metadata and appropriate template resources for downstream anatomical processing
@@ -960,12 +961,11 @@ def _get_info(in_file):
     Returns
     -------
     modality : Extracted modality from filename
-    bspline : B-spline grid distance for N4 bias field correction (400 for FLAIR, 200 otherwise)
+    bspline : B-spline grid distance for N4 bias field correction (400 for FLAIR)
     tpl_reference : Path to the selected MNI template image
     tpl_mask : Path to the binary brain mask of the selected MNI template.
     tissue_tpls : List of paths to probabilistic segmentation maps for CSF, GM, and WM.
-    likelihood_model : Tissue segmentation model type for Atropos (e.g., 'HistogramParzenWindows' for FLAIR, 
-        'Gaussian' for others).
+    likelihood_model : Tissue segmentation model type for Atropos.
     """
 
     #1. Get modality
@@ -978,9 +978,9 @@ def _get_info(in_file):
             'tpl_id': 'GG853',
             'likelihood_model': 'HistogramParzenWindows'},
         'T1w':   {
-            'bspline': 200,
+            'bspline': Undefined,
             'tpl_id': config.workflow.template_id,
-            'likelihood_model': 'Gaussian'
+            'likelihood_model': Undefined
             },
     }
     params = modality_params.get(modality, modality_params['T1w'])  # fallback to T1w
@@ -1020,8 +1020,7 @@ def _get_info(in_file):
         * Modality:                                     {modality}
         * INU bspline fitting distance:                 {params["bspline"]}
         * Template:                                     {tpl_id}
-            * Path:          {tpl_reference}
-            * Template specifications:              {common_spec}
+            * Template specifications:                  {common_spec}
     """
     config.loggers.workflow.info(message)
 
