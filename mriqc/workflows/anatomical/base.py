@@ -163,9 +163,6 @@ def anat_qc_workflow(name='anatMRIQC'):
     hmsk = headmsk_wf(omp_nthreads=config.nipype.omp_nthreads)
     # 4. Spatial Normalization, using ANTs
     norm = spatial_normalization()
-    # 4a. QuickSyn spatial normalisation
-    # from mriqc.workflows.anatomical.flair_modules.normalisation import quicksyn_normalisation as quicksyn_norm
-    # #syn_norm = quicksyn_norm()
 
     # 5. Air mask (with and without artifacts)
     amw = airmsk_wf()
@@ -299,7 +296,6 @@ def anat_qc_workflow(name='anatMRIQC'):
 
 def spatial_normalization(name='SpatialNormalization'):
     """Create a simplified workflow to perform fast spatial normalization."""
-
     from mriqc.workflows.anatomical.flair_modules.normalisation import (
         WrapSpatialNormalizationRPT as RobustMNINormalization,
     )
@@ -337,7 +333,6 @@ def spatial_normalization(name='SpatialNormalization'):
         num_threads=config.nipype.omp_nthreads,
         mem_gb=3,
     )
-
     if config.workflow.species.lower() == 'human':
         workflow.connect([
         (inputnode, norm, [('reference_mask', 'reference_mask'),
@@ -348,8 +343,6 @@ def spatial_normalization(name='SpatialNormalization'):
     else:
         norm.inputs.reference_image = str(get_template(tpl_id, suffix='T2w'))
         norm.inputs.reference_mask = str(get_template(tpl_id, desc='brain', suffix='mask')[0])
-        norm.inputs.flavor = ['testing', 'fast'][config.execution.debug]
-        norm.inputs.template = tpl_id
 
     # Project standard TPMs into T1w space
     tpms_std2t1w = pe.MapNode(
@@ -362,7 +355,6 @@ def spatial_normalization(name='SpatialNormalization'):
         iterfield=['input_image'],
         name='tpms_std2t1w',
     )
-    #tpms_std2t1w.inputs.invert_transform_flags = [True]
 
     # Project standard headmask to native space
     hmask_mni2nat = pe.Node(
@@ -948,33 +940,11 @@ def _get_mod(in_file):
     extension = ''.join(in_file.suffixes)
     return in_file.name.replace(extension, '').split('_')[-1]
 
-def _select_tissue(modality, inlist):
-    max_tissue = {'T1w'     : {'tissue':'WM', 'file': 'segment_03'},
-                  'T2w'     : {'tissue':'CSF', 'file': 'segment_01'},
-                  'FLAIR'   : {'tissue':'GM', 'file': 'segment_02'}}
-
-    tissue = max_tissue[modality]['tissue']
-    return [f for f in inlist if tissue in f][0]
 
 def _pop(inlist):
     if isinstance(inlist, (list, tuple)):
         return inlist[0]
     return inlist
-
-
-def percentile_enhanced(in_arr, tissue_arr, percentile):
-    import numpy as np
-    range_max = np.percentile(in_arr[in_arr > 0], percentile)       # 99.98th percentile non-zero voxel values to identify outliers
-    excess = in_arr > range_max                                     #binary mask to identify voxels exceeding range_max
-    tissue_arr[excess] = 0                                          #voxels exceeding range_max map to zero in tissue probability to exclude outliers
-
-    tissue_mu = np.average(in_arr, weights=tissue_arr)              # Calculate weighted mean and standard deviation
-    tissue_sigma = np.sqrt(np.average((in_arr - tissue_mu) ** 2, weights=tissue_arr))
-
-    #generates new values more representative of overall intensity distribution: assigns values from a normal dist
-    in_arr[excess] = np.random.normal(loc=tissue_mu, scale=tissue_sigma, size=excess.sum())
-    return in_arr
-
 
 def _get_info(in_file):
     from niworkflows.utils.misc import get_template_specs

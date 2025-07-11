@@ -285,6 +285,7 @@ class _ArtifactMaskInputSpec(BaseInterfaceInputSpec):
     ind2std_xfm = File(exists=True, mandatory=True, desc='individual to standard affine transform')
     zscore = traits.Float(10.0, usedefault=True, desc='z-score to consider artifacts')
 
+
 class _ArtifactMaskOutputSpec(TraitedSpec):
     out_hat_msk = File(exists=True, desc='output "hat" mask')
     out_art_msk = File(exists=True, desc='output artifacts mask')
@@ -306,7 +307,9 @@ class ArtifactMask(SimpleInterface):
         in_file = Path(self.inputs.in_file)
         imnii = nb.as_closest_canonical(nb.load(in_file))
         imdata = np.nan_to_num(imnii.get_fdata().astype(np.float32))
+
         xfm = Affine.from_filename(self.inputs.ind2std_xfm, fmt='itk')
+
         ras2ijk = np.linalg.inv(imnii.affine)
         glabella_ijk, inion_ijk = apply_affine(
             ras2ijk, xfm.map([self.inputs.glabella_xyz, self.inputs.inion_xyz])
@@ -318,7 +321,7 @@ class ArtifactMask(SimpleInterface):
         dist = nd.morphology.distance_transform_edt(~hmdata)
 
         hmdata[:, :, : int(inion_ijk[2])] = 1
-        hmdata[:, (hmdata.shape[1] // 2) :, : int(glabella_ijk[2])] = 1 
+        hmdata[:, (hmdata.shape[1] // 2) :, : int(glabella_ijk[2])] = 1
 
         dist[~hmdata] = 0
         dist /= dist.max()
