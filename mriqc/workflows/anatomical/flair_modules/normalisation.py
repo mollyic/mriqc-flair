@@ -212,32 +212,20 @@ def _download_file(url: str, output_path: str) -> None:
 
 def _get_custom_templates(modality: str = 'FLAIR',
                           template_id: str = 'GG853',
-                          template_dir: Optional[Path] = None,
                           template_res: int = 1) -> List:
     """
-    Wrapper function to handle FLAIR templates not available on TemplateFlow Database
-
-    If the template is not already present in TemplateFlow cache dir, it will attempt to download if the template_id is 'GG853'
-    or copy it from the specified directory.
-
+    Wrapper function to handle FLAIR templates not available on TemplateFlow Database. Downloads Braindr files from S3
+    
     Parameters
     ----------
-    modality : str
-        Modality of the template (e.g., 'FLAIR').
-    template_id : str
-        Template identifier (default: 'GG853').
-    template_dir : Optional[Path]
-        Path to a local directory containing template files.
-    template_res : int
-        Resolution level of the template (default: 1).
+    modality:  Modality of the template 
+    template_id: Template id (FLAIR: 'GG853').
+    template_res: Resolution level of the template (default: 1).
     """
 
     import json
-    import re
     from pathlib import Path
-
     from templateflow import conf
-    from templateflow.api import get as get_template
 
     license_text = """\
     Copyright (c) 2012 Anderson M. Winkler, Peter Kochunov, David C. Glahn.
@@ -270,57 +258,30 @@ def _get_custom_templates(modality: str = 'FLAIR',
         }
     }
 
-    template_dir = Path(template_dir) if template_dir else None
     tf_tpl_dir: Path = conf.TF_HOME / ('tpl-' + template_id)
-
     tpl_license =tf_tpl_dir /'LICENSE'
     tpl_desc_json = tf_tpl_dir / 'template_description.json'
-    tpl_head_re = rf'tpl-{template_id}.*res-(0?{template_res}).*'
-    tpl_patterns = [
-            rf'{tpl_head_re}{suffix}'
-            for suffix in [rf'{modality}\.nii(\.gz)?$',
-                           r'label-CSF.*probseg\.nii(\.gz)?$',
-                           r'label-WM.*probseg\.nii(\.gz)?$',
-                           r'label-GM.*probseg\.nii(\.gz)?$']]
 
-    tpl_mask =  get_template('MNI152NLin2009cAsymm', desc='brain', suffix='mask', resolution ='1')
+    tf_tpl_dir.mkdir(parents=True, exist_ok=True)
 
-    # Check if templateflow directory is present
-    if tf_tpl_dir.exists():
-        matches = [fname for fname in tf_tpl_dir.rglob('*') for ptn in tpl_patterns if re.match(ptn, str(fname.name))]
-        print(f'Template {template_id} already exists in the templateflow database. \nDirectory: {tf_tpl_dir}')
-        if len(matches) >= len(tpl_patterns):
-            print(f'Found {len(matches)}/4 matches for {template_id}')
-        else:
-            print('Insufficient files in local templateflow directory, attempting to source...')
+    # Synthstripped brain mask of GG853    
+    brain_mask = Path.cwd() / 'mriqc' / 'templates' / 'tpl-GG853_res-01_desc-brain_mask.nii.gz'
+    if not (tf_tpl_dir / brain_mask.name).exists():
+        shutil.copy2(brain_mask, tf_tpl_dir / brain_mask.name)
 
-    if not template_dir:
-        # Download the template files if template_id is GG853
-        tf_tpl_dir.mkdir(parents=True, exist_ok=True)
-        dwnld_head = 'https://s3.us-east-2.amazonaws.com/brainder/software/flair/templates/'
-        dwnld_lst = [{'ref_std': {'url_name': 'GG-853-FLAIR-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_{modality}.nii.gz'}},
-                     {'gm_probseg' : {'url_name': 'GG-853-GM-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-GM_probseg.nii.gz'}},
-                     {'wm_probseg' : {'url_name': 'GG-853-WM-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-WM_probseg.nii.gz'}},
-                     {'csf_probseg' : {'url_name': 'GG-853-CSF-1.0mm.nii.gz', 'tf_name': f'tpl-{template_id}_res-0{template_res}_label-CSF_probseg.nii.gz'}}]
+    # Files to download from Braindr
+    dwnld_head = 'https://s3.us-east-2.amazonaws.com/brainder/software/flair/templates/'
+    dwnld_lst = [
+        ('GG-853-FLAIR-1.0mm.nii.gz', f'tpl-{template_id}_res-0{template_res}_{modality}.nii.gz'),
+        ('GG-853-GM-1.0mm.nii.gz', f'tpl-{template_id}_res-0{template_res}_label-GM_probseg.nii.gz'),
+        ('GG-853-WM-1.0mm.nii.gz', f'tpl-{template_id}_res-0{template_res}_label-WM_probseg.nii.gz'),
+        ('GG-853-CSF-1.0mm.nii.gz', f'tpl-{template_id}_res-0{template_res}_label-CSF_probseg.nii.gz'),
+    ]
 
-        for tpl_dict in dwnld_lst:
-            for tpl_key, tpl_val in tpl_dict.items():
-                dfile = tf_tpl_dir / tpl_val['tf_name']
-                if not (dfile).exists():
-                    _download_file(f"{dwnld_head}{tpl_val['url_name']}", tf_tpl_dir / tpl_val['tf_name'])
-
-    else:
-        # Copy the template files from the specified directory
-        if template_dir.exists():
-            matches = [fname for fname in template_dir.rglob('*') for ptn in tpl_patterns if re.match(rf'{tpl_head_re}{ptn}', str(fname.name))]
-            if len(matches) == len(tpl_patterns):
-                for file in matches:
-                    shutil.copy2(file, tf_tpl_dir / file.name)
-                print(f'Template {template_id} added to the templateflow database.')
-            else:
-                raise FileNotFoundError(f'Template directory does not contain all required files: {template_dir}')
-        else:
-            raise FileNotFoundError(f'Template directory not found: {template_dir}')
+    for url_name, tf_name in dwnld_lst:
+        out_path = tf_tpl_dir / tf_name
+        if not out_path.exists():
+            _download_file(f"{dwnld_head}{url_name}", out_path)
 
     if not tpl_desc_json.exists():
         with tpl_desc_json.open('w') as f:
