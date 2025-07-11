@@ -183,7 +183,6 @@ def anat_qc_workflow(name='anatMRIQC'):
                     'bspline',
                     'tpl_reference',
                     'tpl_mask',
-                    'wm_tpl',
                     'tissue_tpls',
                     'likelihood_model',
                     'tpl_id',
@@ -964,7 +963,6 @@ def _get_info(in_file):
     bspline : B-spline grid distance for N4 bias field correction (400 for FLAIR, 200 otherwise)
     tpl_reference : Path to the selected MNI template image
     tpl_mask : Path to the binary brain mask of the selected MNI template.
-    wm_tpl : Path to the white matter probabilistic segmentation map.
     tissue_tpls : List of paths to probabilistic segmentation maps for CSF, GM, and WM.
     likelihood_model : Tissue segmentation model type for Atropos (e.g., 'HistogramParzenWindows' for FLAIR, 
         'Gaussian' for others).
@@ -1002,8 +1000,8 @@ def _get_info(in_file):
     #5. Check species and configure tpls accordingly
     tpl_reference, tpl_mask = ((tpl_reference, tpl_mask)
                                       if config.workflow.species.lower() == 'human'
-                                      else (str(get_template(tpl_id, suffix='T2w')),
-                                            str(get_template(tpl_id, desc='brain', suffix='mask')[0]))
+                                      else (str(get_template(config.workflow.template_id, suffix='T2w')),
+                                            str(get_template(config.workflow.template_id, desc='brain', suffix='mask')[0]))
                                             )
     #6. Get tissue templates
     tissue_tpls = [str(p)
@@ -1012,9 +1010,7 @@ def _get_info(in_file):
                                          resolution=(1 if config.workflow.species.lower() == 'human' else None),
                                          label=['CSF', 'GM', 'WM'],
                                          )]
-    #7. WM template
-    wm_tpl= next(tissue_tpl for tissue_tpl in tissue_tpls if 'label-WM' in tissue_tpl)
-
+    
     # 7. Get template resolution, default is 1 for FLAIR
     tpl_res = 'fast' if modality == 'FLAIR' else ['testing', 'fast'][config.execution.debug]
 
@@ -1031,4 +1027,4 @@ def _get_info(in_file):
     """
     config.loggers.workflow.info(message)
 
-    return modality, params['bspline'], tpl_reference, tpl_mask, wm_tpl, tissue_tpls, params['likelihood_model'], tpl_id, tpl_res
+    return modality, params['bspline'], tpl_reference, tpl_mask, tissue_tpls, params['likelihood_model'], tpl_id, tpl_res
