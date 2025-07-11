@@ -9,7 +9,6 @@ Created by Molly Ireland
 
 """
 
-
 from nipype import Function, MapNode, Node, Workflow
 from nipype.interfaces import utility as niu
 from nipype.interfaces.ants import ImageMath, MultiplyImages, ThresholdImage
@@ -71,8 +70,8 @@ def clean_tissue_segs(name='clean_segs', padding = 10):
         (wm_wf, seg_builder,        [('outputnode.out_tissue', 'inputnode.wm')]),
         (csf_wf, seg_builder,       [('outputnode.out_tissue', 'inputnode.csf')]),
         (gm_wf, seg_builder,        [('outputnode.out_tissue', 'inputnode.gm')]),
-        (inputnode, mask_pvms,      [('modality', 'modality')]),
-        (inputnode, mask_pvms,      [('pvms', 'pvm')]),
+        (inputnode, mask_pvms,      [('modality', 'modality'),
+                                     ('pvms', 'pvm')]),
         (seg_builder, mask_pvms,    [('outputnode.proc_seg_lst', 'seg_lst')]),
         (seg_builder, outputnode,   [('outputnode.sumd_tissues', 'out_segm'),
                                      ('outputnode.proc_seg_lst', 'out_segs_proc')]),
@@ -257,7 +256,10 @@ def _mask_pvms(pvm, modality, seg_lst):
     from nipype.utils.filemanip import fname_presuffix
 
     from mriqc.config import ATROPOS_MODELS
-
+    if modality != 'flair': 
+        # Don't apply masking for non-FLAIR: untested and not needed
+        return pvm
+    
     model = ATROPOS_MODELS[modality]
     idx = re.search(r'segment_(\d+).nii.gz', pvm).group(1)
     tissue = next(key for key, val in model.items() if f'0{val}' == idx)

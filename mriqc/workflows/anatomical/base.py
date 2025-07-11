@@ -976,12 +976,10 @@ def _get_info(in_file):
         'FLAIR': {
             'bspline': 400,
             'tpl_id': 'GG853',
-            'tpl_mask_id': 'MNI152NLin2009cAsym',
             'likelihood_model': 'HistogramParzenWindows'},
         'T1w':   {
             'bspline': 200,
             'tpl_id': config.workflow.template_id,
-            'tpl_mask_id': config.workflow.template_id,
             'likelihood_model': 'Gaussian'
             },
     }
@@ -995,7 +993,7 @@ def _get_info(in_file):
     tpl_reference, common_spec = get_template_specs(tpl_id, template_spec=template_spec, fallback=True,)
 
     #4. binary brain mask
-    tpl_mask =  get_template(params['tpl_mask_id'], desc='brain', suffix='mask', **common_spec)
+    tpl_mask =  get_template(tpl_id, desc='brain', suffix='mask', **common_spec)
 
     #5. Check species and configure tpls accordingly
     tpl_reference, tpl_mask = ((tpl_reference, tpl_mask)
