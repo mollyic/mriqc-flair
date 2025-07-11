@@ -35,11 +35,11 @@ def format_elapsed_time(elapsed_timedelta):
 def main(argv=None):
     """Entry point for MRIQC's CLI."""
     import atexit
-    import datetime
     import gc
     import os
     import sys
     import time
+    import datetime
     from tempfile import mkstemp
 
     from mriqc import config, messages
@@ -126,6 +126,7 @@ def main(argv=None):
         # function executed constrained in a process may change the config (and thus the global
         # state of MRIQC).
         config.load(config_file)
+
         exitcode = exitcode or (mriqc_wf is None) * os.EX_SOFTWARE
         if exitcode != 0:
             sys.exit(exitcode)

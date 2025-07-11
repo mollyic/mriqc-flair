@@ -35,7 +35,6 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
 
     from mriqc.interfaces.synthstrip import SynthStrip
 
-
     inputnode = pe.Node(niu.IdentityInterface(fields=['in_files', 'bspline']), name='inputnode')
     outputnode = pe.Node(
         niu.IdentityInterface(
@@ -64,7 +63,6 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
             num_threads=omp_nthreads,
             n_iterations=[50] * 4,
             copy_header=True,
-            rescale_intensities=True,
         ),
         name='post_n4',
     )

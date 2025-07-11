@@ -2,7 +2,6 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 #
 # Copyright 2021 The NiPreps Developers <nipreps@gmail.com>
-# Modified by Molly Ireland on 2025-03-13
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -97,11 +96,10 @@ import os
 import pickle
 import sys
 from collections import OrderedDict
-from collections.abc import Iterable
 from contextlib import suppress
 from pathlib import Path
 from time import strftime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterable
 from uuid import uuid4
 
 try:
@@ -171,7 +169,6 @@ repository. \
 Submission of IQMs can be disabled using the ``--no-sub`` argument. \
 Please visit https://mriqc.readthedocs.io/en/latest/dsa.html to revise MRIQC's \
 Data Sharing Agreement."""
-
 
 _exec_env: str = os.name
 _docker_ver: str | None = None
