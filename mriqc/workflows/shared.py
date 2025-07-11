@@ -2,7 +2,6 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 #
 # Copyright 2023 The NiPreps Developers <nipreps@gmail.com>
-# Modified by Molly Ireland on 2025-03-13
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +19,8 @@
 # about our expectations at
 #
 #     https://www.nipreps.org/community/licensing/
+#
+# Modified by Molly Ireland on 2025-03-13
 #
 """Shared workflows."""
 
@@ -41,7 +42,6 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
             fields=['out_corrected', 'out_brain', 'bias_image', 'out_mask', 'out_skin_mask']),
         name='outputnode',
     )
-
 
     # truncate target intensity for N4 correction
     pre_clip = pe.Node(IntensityClip(p_min=10, p_max=99.9), name='pre_clip')
