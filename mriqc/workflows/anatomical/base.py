@@ -92,9 +92,7 @@ def anat_qc_workflow(name='anatMRIQC'):
             wf = anat_qc_workflow()
 
     """
-    #from mriqc.workflows import init_atropos_wf
     from mriqc.workflows.shared import synthstrip_wf
-
 
     # Enable if necessary
     # mem_gb = max(
@@ -163,7 +161,6 @@ def anat_qc_workflow(name='anatMRIQC'):
     hmsk = headmsk_wf(omp_nthreads=config.nipype.omp_nthreads)
     # 4. Spatial Normalization, using ANTs
     norm = spatial_normalization()
-
     # 5. Air mask (with and without artifacts)
     amw = airmsk_wf()
     # 6. Brain tissue segmentation
