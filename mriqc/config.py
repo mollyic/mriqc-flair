@@ -632,7 +632,7 @@ class workflow(_Config):
     """Subject species to choose most appropriate template"""
     template_id: str = 'MNI152NLin2009cAsym'
     """TemplateFlow ID of template used for the anatomical processing."""
-
+    
     _hidden: tuple[str, ...] = ('inputs', 'inputs_entities', 'inputs_metadata')
 
     @classmethod

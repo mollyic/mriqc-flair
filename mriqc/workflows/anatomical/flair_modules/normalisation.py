@@ -67,7 +67,7 @@ class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
 
 
 def quicksyn_normalisation(name='QuickSynSpatialNormalization'):
-    """Create a simplied workflow to perform spatial normalization with Ants QuickSyn."""
+    """Create a simplified workflow to perform spatial normalization with Ants QuickSyn."""
     from templateflow.api import get as get_template
 
     from mriqc.workflows.anatomical.flair_modules.normalisation import (

@@ -299,7 +299,6 @@ def anat_qc_workflow(name='anatMRIQC'):
 
 def spatial_normalization(name='SpatialNormalization'):
     """Create a simplified workflow to perform fast spatial normalization."""
-    from pathlib import Path
 
     from mriqc.workflows.anatomical.flair_modules.normalisation import (
         WrapSpatialNormalizationRPT as RobustMNINormalization,
@@ -385,7 +384,7 @@ def spatial_normalization(name='SpatialNormalization'):
 
     def _get_settings(modality):
         from traits.api import Undefined
-        from pathlib import Path
+        from pathlib import Path 
         if modality.lower() == 'flair':
             settings_path = Path.cwd() / 'mriqc' / 'templates' / 'flair-mni_registration_desc-bspline.json'
             return [str(settings_path)]

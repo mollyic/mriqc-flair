@@ -1,5 +1,5 @@
 """
-Clean and refine brain tissue segmentations using using a simplified verions of ANTs
+Clean and refine brain tissue segmentations using using a simplified versions of ANTs
 `antsBrainExtraction.sh`.
 
 Takes outputted ATROPOS segmentation output and performs tissue-specific morphological 
