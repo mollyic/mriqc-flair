@@ -1,7 +1,6 @@
 import shutil
 import urllib.request
-from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from nipype.interfaces import utility as niu
 from nipype.interfaces.ants import RegistrationSynQuick
@@ -26,20 +25,27 @@ from niworkflows.interfaces.reportlets.registration import (
 from mriqc import config
 
 
-class _RegistrationSynQuickInputSpecRPT(nrb._SVGReportCapableInputSpec, RegistrationSynQuickInputSpec):
+class _RegistrationSynQuickInputSpecRPT(
+    nrb._SVGReportCapableInputSpec, RegistrationSynQuickInputSpec
+):
     pass
 
-class _RegistrationSynQuickOutputSpecRPT(reporting.ReportCapableOutputSpec, RegistrationSynQuickOutputSpec):
+
+class _RegistrationSynQuickOutputSpecRPT(
+    reporting.ReportCapableOutputSpec, RegistrationSynQuickOutputSpec
+):
     pass
+
+
 class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
     """
     Custom report-capable interface for ANTs RegistrationSynQuick.
 
-    This class adds SVG report generation to the lightweight RegistrationSynQuick 
-    interface, using B-spline SyN registration [Tustison2013]. 
+    This class adds SVG report generation to the lightweight RegistrationSynQuick
+    interface, using B-spline SyN registration [Tustison2013].
 
-    .. [Tustison2013] Tustison NJ, Avants BB., *Explicit B-spline regularization in 
-        diffeomorphic image registration*, Front Neuroinform 7(39), 2013 
+    .. [Tustison2013] Tustison NJ, Avants BB., *Explicit B-spline regularization in
+        diffeomorphic image registration*, Front Neuroinform 7(39), 2013
         doi:`10.3389/fninf.2013.00039 <http://dx.doi.org/10.3389/fninf.2013.00039>`_.
 
     Created by Molly Ireland
@@ -47,6 +53,7 @@ class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
 
     input_spec = _RegistrationSynQuickInputSpecRPT
     output_spec = _RegistrationSynQuickOutputSpecRPT
+
     def _post_run_hook(self, runtime):
         from mriqc import config
 
@@ -72,19 +79,24 @@ def quicksyn_normalisation(name='QuickSynSpatialNormalization'):
     from mriqc.workflows.anatomical.flair_modules.normalisation import (
         RegistrationSynQuickRPT as RobustMNINormalization,
     )
+
     # Define workflow interface
     workflow = pe.Workflow(name=name)
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=[
-            'moving_image',
-            'moving_mask',
-            'modality',
-            'tpl_resolution',
-            'tpl_id',
-            'tpl_tissues',
-            'reference_image',
-            'reference_mask',]),
-            name='inputnode')
+        niu.IdentityInterface(
+            fields=[
+                'moving_image',
+                'moving_mask',
+                'modality',
+                'tpl_resolution',
+                'tpl_id',
+                'tpl_tissues',
+                'reference_image',
+                'reference_mask',
+            ]
+        ),
+        name='inputnode',
+    )
     outputnode = pe.Node(
         niu.IdentityInterface(fields=['out_tpms', 'out_report', 'ind2std_xfm', 'hmask_mni2nat']),
         name='outputnode',
@@ -95,7 +107,7 @@ def quicksyn_normalisation(name='QuickSynSpatialNormalization'):
         RobustMNINormalization(
             dimension=3,
             num_threads=config.nipype.omp_nthreads,
-            transform_type = 'b',
+            transform_type='b',
             generate_report=True,
         ),
         name='SpatialNormalization',
@@ -125,15 +137,12 @@ def quicksyn_normalisation(name='QuickSynSpatialNormalization'):
             interpolation='Linear',
             float=config.execution.ants_float,
         ),
-        name='hmask_mni2nat'
-        )
+        name='hmask_mni2nat',
+    )
 
     hmask_mni2nat.inputs.input_image = get_template(
-        template='MNI152Lin',
-        desc='head',
-        suffix='mask',
-        resolution ='2'
-        )
+        template='MNI152Lin', desc='head', suffix='mask', resolution='2'
+    )
     hmask_mni2nat.inputs.invert_transform_flags = [True]
 
     # fmt: off
@@ -171,13 +180,17 @@ class _WrapSpatialNormalizationInputSpec(_SpatialNormalizationInputSpec):
         desc='set the reference modality for registration (extended)',
     )
 
+
 class WrapSpatialNormalization(SpatialNormalization):
     input_spec = _WrapSpatialNormalizationInputSpec
+
 
 class _WrapSpatialNormalizationInputSpecRPT(
     nrb._SVGReportCapableInputSpec, _WrapSpatialNormalizationInputSpec
 ):
     pass
+
+
 class WrapSpatialNormalizationRPT(nrb.RegistrationRC, WrapSpatialNormalization):
     """
     Wrapper around NiWorkflows' SpatialNormalization and its reporting variant
@@ -205,26 +218,29 @@ class WrapSpatialNormalizationRPT(nrb.RegistrationRC, WrapSpatialNormalization):
 
         return super()._post_run_hook(runtime)
 
+
 def _download_file(url: str, output_path: str) -> None:
     urllib.request.urlretrieve(url, output_path)
     print(f'\t * Downloaded: {output_path}')
     return output_path
 
-def _get_custom_templates(modality: str = 'FLAIR',
-                          template_id: str = 'GG853',
-                          template_res: int = 1) -> List:
+
+def _get_custom_templates(
+    modality: str = 'FLAIR', template_id: str = 'GG853', template_res: int = 1
+) -> List:
     """
     Wrapper function to handle FLAIR templates not available on TemplateFlow Database. Downloads Braindr files from S3
-    
+
     Parameters
     ----------
-    modality:  Modality of the template 
+    modality:  Modality of the template
     template_id: Template id (FLAIR: 'GG853').
     template_res: Resolution level of the template (default: 1).
     """
 
     import json
     from pathlib import Path
+
     from templateflow import conf
 
     license_text = """\
@@ -246,25 +262,25 @@ def _get_custom_templates(modality: str = 'FLAIR',
         'Name': 'GG853 - FLAIR templates for the Genetics of Brain Structure and Function Study (GOBS) 2012',
         'ReferencesAndLinks': [
             'https://brainder.org/download/flair/',
-            'https://s3.us-east-2.amazonaws.com/brainder/publications/2009/HBM2009_flair_poster.pdf'
+            'https://s3.us-east-2.amazonaws.com/brainder/publications/2009/HBM2009_flair_poster.pdf',
         ],
         'TemplateFlowVersion': '1.0.0',
         'res': {
             '01': {
                 'origin': [-91.0, -126.0, -72.0],
                 'shape': [182, 218, 182],
-                'zooms': [1.0, 1.0, 1.0]
+                'zooms': [1.0, 1.0, 1.0],
             }
-        }
+        },
     }
 
     tf_tpl_dir: Path = conf.TF_HOME / ('tpl-' + template_id)
-    tpl_license =tf_tpl_dir /'LICENSE'
+    tpl_license = tf_tpl_dir / 'LICENSE'
     tpl_desc_json = tf_tpl_dir / 'template_description.json'
 
     tf_tpl_dir.mkdir(parents=True, exist_ok=True)
 
-    # Synthstripped brain mask of GG853    
+    # Synthstripped brain mask of GG853
     brain_mask = Path.cwd() / 'mriqc' / 'templates' / 'tpl-GG853_res-01_desc-brain_mask.nii.gz'
     if not (tf_tpl_dir / brain_mask.name).exists():
         shutil.copy2(brain_mask, tf_tpl_dir / brain_mask.name)
@@ -273,15 +289,24 @@ def _get_custom_templates(modality: str = 'FLAIR',
     dwnld_head = 'https://s3.us-east-2.amazonaws.com/brainder/software/flair/templates/'
     dwnld_lst = [
         ('GG-853-FLAIR-1.0mm.nii.gz', f'tpl-{template_id}_res-0{template_res}_{modality}.nii.gz'),
-        ('GG-853-GM-1.0mm.nii.gz', f'tpl-{template_id}_res-0{template_res}_label-GM_probseg.nii.gz'),
-        ('GG-853-WM-1.0mm.nii.gz', f'tpl-{template_id}_res-0{template_res}_label-WM_probseg.nii.gz'),
-        ('GG-853-CSF-1.0mm.nii.gz', f'tpl-{template_id}_res-0{template_res}_label-CSF_probseg.nii.gz'),
+        (
+            'GG-853-GM-1.0mm.nii.gz',
+            f'tpl-{template_id}_res-0{template_res}_label-GM_probseg.nii.gz',
+        ),
+        (
+            'GG-853-WM-1.0mm.nii.gz',
+            f'tpl-{template_id}_res-0{template_res}_label-WM_probseg.nii.gz',
+        ),
+        (
+            'GG-853-CSF-1.0mm.nii.gz',
+            f'tpl-{template_id}_res-0{template_res}_label-CSF_probseg.nii.gz',
+        ),
     ]
 
     for url_name, tf_name in dwnld_lst:
         out_path = tf_tpl_dir / tf_name
         if not out_path.exists():
-            _download_file(f"{dwnld_head}{url_name}", out_path)
+            _download_file(f'{dwnld_head}{url_name}', out_path)
 
     if not tpl_desc_json.exists():
         with tpl_desc_json.open('w') as f:
@@ -289,6 +314,7 @@ def _get_custom_templates(modality: str = 'FLAIR',
 
     if not tpl_license.exists():
         tpl_license.write_text(license_text)
+
 
 if __name__ == '__main__':
     """Run the FLAIR template check/download script"""

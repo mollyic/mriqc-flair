@@ -514,19 +514,29 @@ def fuzzy_jaccard(in_tpms, in_mni_tpms):
         overlaps.append(float(num / den))
     return overlaps
 
+
 class _HeadReviewInputSpec(BaseInterfaceInputSpec):
     hmask = File(exists=True, mandatory=True, desc='Gradient magnitude headmask for review')
-    hmask_mni2nat = File(exists=True, mandatory=True, desc='MNI headmask transformed into subject space')
+    hmask_mni2nat = File(
+        exists=True, mandatory=True, desc='MNI headmask transformed into subject space'
+    )
     mni_floor = traits.Tuple(
         (0.0, 0.0, -40.0),
         types=(traits.Float, traits.Float, traits.Float),
         usedefault=True,
-        desc='MNI coordinate defining inferior cutoff')
-    ind2std_xfm = File(exists=True, mandatory=True, desc='Affine transform from subject to standard space')
-    artifact_thresh = traits.Float(150.0, usedefault=True, desc='volume threshold identify upper-mask artifacts')
+        desc='MNI coordinate defining inferior cutoff',
+    )
+    ind2std_xfm = File(
+        exists=True, mandatory=True, desc='Affine transform from subject to standard space'
+    )
+    artifact_thresh = traits.Float(
+        150.0, usedefault=True, desc='volume threshold identify upper-mask artifacts'
+    )
+
 
 class _HeadReviewOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='output reviewed mask')
+
 
 class HeadMask_review(SimpleInterface):
     """
@@ -575,27 +585,26 @@ class HeadMask_review(SimpleInterface):
         mni_floor = apply_affine(ras2ijk, xfm.map(self.inputs.mni_floor))[0]
 
         # Crop masks at the defined z-floor
-        crop_hmask = hmask[:, :, int(mni_floor[2]): ]
-        crop_hmask_mni2nat = hmask_mni2nat[:, :, int(mni_floor[2]): ]
+        crop_hmask = hmask[:, :, int(mni_floor[2]) :]
+        crop_hmask_mni2nat = hmask_mni2nat[:, :, int(mni_floor[2]) :]
 
         # Count non-zero voxels in subject and template upper masks
-        n_hmask = crop_hmask[crop_hmask !=0].size
-        n_hmask_mni2nat = crop_hmask_mni2nat[crop_hmask_mni2nat !=0].size
+        n_hmask = crop_hmask[crop_hmask != 0].size
+        n_hmask_mni2nat = crop_hmask_mni2nat[crop_hmask_mni2nat != 0].size
         overlap = (n_hmask / n_hmask_mni2nat) * 100
-        config.loggers.workflow.info(f'HeadMaskReview: subject/template voxel ratio above floor = {overlap:.2f}%')
+        config.loggers.workflow.info(
+            f'HeadMaskReview: subject/template voxel ratio above floor = {overlap:.2f}%'
+        )
 
         # If subject upper-mask is larger than threshold percentage, apply MNI mask
         if overlap >= self.inputs.artifact_thresh:
-            hmask_mnicrop_path = self.inputs.hmask.replace('_hmask','')
+            hmask_mnicrop_path = self.inputs.hmask.replace('_hmask', '')
             hmask_mnicrop = nib.load(hmask_mnicrop_path).get_fdata()
 
             # Apply MNI-derived mask to upper portion of image
-            hmask_mnicrop[:, :, int(mni_floor[2]):] *= hmask_mni2nat[:, :, int(mni_floor[2]): ]
+            hmask_mnicrop[:, :, int(mni_floor[2]) :] *= hmask_mni2nat[:, :, int(mni_floor[2]) :]
 
-            out_file = str(generate_filename(
-                self.inputs.hmask,
-                suffix='MNIcrop').absolute()
-                )
+            out_file = str(generate_filename(self.inputs.hmask, suffix='MNIcrop').absolute())
 
             config.loggers.workflow.info(
                 'HeadMaskReview: Threshold exceeded: cropping with MNI-transformed template.'
