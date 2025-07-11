@@ -3,7 +3,6 @@ import urllib.request
 from pathlib import Path
 from typing import List, Optional
 
-
 from nipype.interfaces import utility as niu
 from nipype.interfaces.ants import RegistrationSynQuick
 from nipype.interfaces.ants.registration import (
