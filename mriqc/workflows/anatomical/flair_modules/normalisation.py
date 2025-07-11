@@ -13,7 +13,6 @@ from nipype.interfaces.base import traits
 from nipype.interfaces.mixins import reporting
 from nipype.pipeline import engine as pe
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-
 from niworkflows.interfaces.norm import (
     NIWORKFLOWS_LOG,
     SpatialNormalization,

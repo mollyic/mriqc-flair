@@ -109,9 +109,9 @@ def _binarise_seg_labels(in_segm, modality):
     out_files = {}
     for tissue, label in model.items():
         mask_data = (label_data == label).astype(np.uint8)
-        mask_data[mask_data > 0] = 1  
+        mask_data[mask_data > 0] = 1
         out_mask = nii.__class__(mask_data, nii.affine, nii.header)
-        out_mask.set_data_dtype(np.uint8)  
+        out_mask.set_data_dtype(np.uint8)
 
         out_file = fname_presuffix(
             in_segm,
