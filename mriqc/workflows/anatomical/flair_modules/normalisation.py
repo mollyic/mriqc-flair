@@ -13,7 +13,6 @@ from nipype.interfaces.base import traits
 from nipype.interfaces.mixins import reporting
 from nipype.pipeline import engine as pe
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-
 from niworkflows.interfaces.norm import (
     NIWORKFLOWS_LOG,
     SpatialNormalization,
@@ -67,7 +66,7 @@ class RegistrationSynQuickRPT(nrb.RegistrationRC, RegistrationSynQuick):
 
 
 def quicksyn_normalisation(name='QuickSynSpatialNormalization'):
-    """Create a simplied workflow to perform spatial normalization with Ants QuickSyn."""
+    """Create a simplified workflow to perform spatial normalization with Ants QuickSyn."""
     from templateflow.api import get as get_template
 
     from mriqc.workflows.anatomical.flair_modules.normalisation import (

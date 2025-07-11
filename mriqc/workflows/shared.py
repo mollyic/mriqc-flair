@@ -2,7 +2,6 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 #
 # Copyright 2023 The NiPreps Developers <nipreps@gmail.com>
-# Modified by Molly Ireland on 2025-03-13
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+# Modified by Molly Ireland on 2025-03-13
+#
 """Shared workflows."""
 
 from nipype.interfaces import utility as niu
@@ -35,14 +36,12 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
 
     from mriqc.interfaces.synthstrip import SynthStrip
 
-
     inputnode = pe.Node(niu.IdentityInterface(fields=['in_files', 'bspline']), name='inputnode')
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=['out_corrected', 'out_brain', 'bias_image', 'out_mask', 'out_skin_mask']),
         name='outputnode',
     )
-
 
     # truncate target intensity for N4 correction
     pre_clip = pe.Node(IntensityClip(p_min=10, p_max=99.9), name='pre_clip')
@@ -64,7 +63,6 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
             num_threads=omp_nthreads,
             n_iterations=[50] * 4,
             copy_header=True,
-            rescale_intensities=True,
         ),
         name='post_n4',
     )
@@ -82,8 +80,6 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
     final_masked = pe.Node(ApplyMask(), name='final_masked')
 
     workflow = pe.Workflow(name=name)
-
-
     # fmt: off
     workflow.connect([
         (inputnode, pre_clip, [('in_files', 'in_file')]),

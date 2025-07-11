@@ -22,7 +22,6 @@
 #
 # Modified by Molly Ireland
 #
-
 """Encapsulates report generation functions."""
 
 from itertools import product
@@ -49,7 +48,7 @@ def gen_html(csv_file, mod, csv_failed=None, out_file=None):
 
     if csv_file.suffix == '.csv':
         dataframe = pd.read_csv(
-            csv_file, index_col=False, dtype=dict.fromkeys(BIDS_COMP, object)
+            csv_file, index_col=False, dtype={comp: object for comp in BIDS_COMP}
         )
 
         id_labels = list(set(BIDS_COMP) & set(dataframe.columns))
