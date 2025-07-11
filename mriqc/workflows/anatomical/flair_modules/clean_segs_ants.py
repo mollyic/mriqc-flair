@@ -109,9 +109,9 @@ def _binarise_seg_labels(in_segm, modality):
     out_files = {}
     for tissue, label in model.items():
         mask_data = (label_data == label).astype(np.uint8)
-        mask_data[mask_data > 0] = 1  # Ensure no values >1 sneak in
+        mask_data[mask_data > 0] = 1  
         out_mask = nii.__class__(mask_data, nii.affine, nii.header)
-        out_mask.set_data_dtype(np.uint8)  # Enforce dtype in header
+        out_mask.set_data_dtype(np.uint8)  
 
         out_file = fname_presuffix(
             in_segm,
@@ -140,11 +140,10 @@ def _tissue_wf(tissue, padding=10):
     workflow : nipype Workflow
         A workflow that outputs:
             - out_tissue: processed binary mask for the specified tissue.
-            - erode_csf: eroded CSF mask (only for CSF tissue).
     """
 
     inputnode = Node(niu.IdentityInterface(fields=['in_file']), name = 'inputnode')
-    outputnode = Node(niu.IdentityInterface(fields=['out_tissue', 'erode_csf']), name='outputnode')
+    outputnode = Node(niu.IdentityInterface(fields=['out_tissue']), name='outputnode')
 
     lcc = Node(ImageMath(operation='GetLargestComponent', copy_header=True), name ='getLCC')
     fill_holes = Node(ImageMath(operation='FillHoles', op2='2', copy_header=True), name='fill_holes')
@@ -163,7 +162,6 @@ def _tissue_wf(tissue, padding=10):
         workflow.connect([
             (inputnode, morph_erode,                [('in_file', 'op1')]),
             (inputnode, reindex_tissue,             [('in_file', 'first_input')]),
-            (morph_erode, outputnode,               [('output_image', 'erode_csf')]),
             ])
     else:
         workflow.connect([
