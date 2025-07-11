@@ -55,8 +55,6 @@ def init_mriqc_wf():
 
     # Create sMRI QC workflow
     input_keys = config.workflow.inputs.keys()
-    print(f'Input keys for anatomical workflow: {input_keys}')
-    print('Anatomical keys:', ANATOMICAL_KEYS)
     if any(key in input_keys for key in ANATOMICAL_KEYS):
         workflow.add_nodes([anat_qc_workflow()])
 

@@ -80,8 +80,6 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
     final_masked = pe.Node(ApplyMask(), name='final_masked')
 
     workflow = pe.Workflow(name=name)
-
-
     # fmt: off
     workflow.connect([
         (inputnode, pre_clip, [('in_files', 'in_file')]),
