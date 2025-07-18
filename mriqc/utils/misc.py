@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+# Modified by Molly Ireland
+#
 """Helper functions."""
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ R = TypeVar('R')
 IMTYPES = {
     'T1w': 'anat',
     'T2w': 'anat',
+    'FLAIR': 'anat',
     'bold': 'func',
     'dwi': 'dwi',
 }

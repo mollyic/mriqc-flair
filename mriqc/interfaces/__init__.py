@@ -20,6 +20,9 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+# Modified by Molly Ireland
+#
+
 """mriqc nipype interfaces"""
 
 from niworkflows.interfaces.bids import DerivativesDataSink as _DDSink
@@ -28,6 +31,7 @@ from mriqc.interfaces.anatomical import (
     ArtifactMask,
     ComputeQI2,
     Harmonize,
+    HeadMask_review,
     RotationMask,
     StructuralQC,
 )
@@ -55,4 +59,5 @@ __all__ = [
     'Spikes',
     'StructuralQC',
     'UploadIQMs',
+    'HeadMask_review',
 ]

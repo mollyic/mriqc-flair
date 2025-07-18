@@ -71,3 +71,12 @@ target/
 
 # Run files
 work/
+
+#additions
+.bids_db-*
+.pkl
+config-.*toml
+output/
+logs/
+work/
+flair_modules/work

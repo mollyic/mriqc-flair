@@ -2,7 +2,6 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 #
 # Copyright 2021 The NiPreps Developers <nipreps@gmail.com>
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -19,6 +18,8 @@
 # about our expectations at
 #
 #     https://www.nipreps.org/community/licensing/
+#
+#  Modified by Molly Ireland
 #
 r"""
 A Python module to maintain unique, run-wide *MRIQC* settings.
@@ -93,6 +94,7 @@ from __future__ import annotations
 import os
 import pickle
 import sys
+from collections import OrderedDict
 from contextlib import suppress
 from pathlib import Path
 from time import strftime
@@ -139,7 +141,25 @@ if not any(
     os.environ['PYTHONWARNINGS'] = 'ignore'
 
 
-SUPPORTED_SUFFIXES: tuple[str, ...] = ('T1w', 'T2w', 'bold', 'dwi')
+SUPPORTED_SUFFIXES: tuple[str, ...] = ('T1w', 'T2w', 'FLAIR', 'bold', 'dwi')
+
+ATROPOS_MODELS: dict[str, OrderedDict[str, int]] = {
+    'T1w': OrderedDict([
+        ('csf', 1),
+        ('gm', 2),
+        ('wm', 3),
+    ]),
+    'T2w': OrderedDict([
+        ('csf', 1),
+        ('gm', 2),
+        ('wm', 3),
+    ]),
+    'FLAIR': OrderedDict([
+        ('csf', 1),
+        ('gm', 2),
+        ('wm', 3),
+    ]),
+}
 
 DEFAULT_MEMORY_MIN_GB: float = 0.01
 DSA_MESSAGE: str = """\
@@ -433,9 +453,9 @@ class execution(_Config):
     """Output verbosity."""
     modalities: Iterable[str] = None
     """Filter input dataset by MRI type."""
-    no_sub: bool = False
+    no_sub: bool = True
     """Turn off submission of anonymized quality metrics to Web API."""
-    notrack: bool = False
+    notrack: bool = True
     """Disable the sharing of usage information with developers."""
     output_dir: str | os.PathLike | None = None
     """Folder where derivatives will be stored."""
@@ -513,7 +533,7 @@ class execution(_Config):
                     r'(beh|fmap|pet|perf|meg|eeg|ieeg|micr|nirs)'
                 ),
                 # Ignore all files, except for the supported modalities
-                re.compile(r'^.+(?<!(_T1w|_T2w|bold|_dwi))\.(json|nii|nii\.gz)$'),
+                re.compile(r'^.+(?<!(_T1w|_T2w|LAIR|bold|_dwi))\.(json|nii|nii\.gz)$'),
             ]
 
             if cls.participant_label:

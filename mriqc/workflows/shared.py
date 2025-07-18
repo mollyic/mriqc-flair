@@ -20,6 +20,8 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+# Modified by Molly Ireland on 2025-03-13
+#
 """Shared workflows."""
 
 from nipype.interfaces import utility as niu
@@ -29,13 +31,15 @@ from nipype.pipeline import engine as pe
 def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
     """Create a brain-extraction workflow using SynthStrip."""
     from nipype.interfaces.ants import N4BiasFieldCorrection
+    from nipype.interfaces.fsl import BET
     from niworkflows.interfaces.nibabel import ApplyMask, IntensityClip
 
     from mriqc.interfaces.synthstrip import SynthStrip
 
-    inputnode = pe.Node(niu.IdentityInterface(fields=['in_files']), name='inputnode')
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_files', 'bspline']), name='inputnode')
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=['out_corrected', 'out_brain', 'bias_image', 'out_mask']),
+        niu.IdentityInterface(
+            fields=['out_corrected', 'out_brain', 'bias_image', 'out_mask', 'out_skin_mask']),
         name='outputnode',
     )
 
@@ -69,12 +73,18 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         num_threads=omp_nthreads,
     )
 
+    betted_skin = pe.Node(BET(frac =0.2), name='betted_skin', num_threads=omp_nthreads)
+    betted_skin.inputs.args = '-A'
+    betted_skin.inputs.surfaces = True
+
     final_masked = pe.Node(ApplyMask(), name='final_masked')
 
     workflow = pe.Workflow(name=name)
     # fmt: off
     workflow.connect([
         (inputnode, pre_clip, [('in_files', 'in_file')]),
+        (inputnode, pre_n4, [('bspline', 'bspline_fitting_distance')]),
+        (inputnode, post_n4, [('bspline', 'bspline_fitting_distance')]),
         (pre_clip, pre_n4, [('out_file', 'input_image')]),
         (pre_n4, synthstrip, [('output_image', 'in_file')]),
         (synthstrip, post_n4, [('out_mask', 'weight_image')]),
@@ -85,6 +95,8 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         (post_n4, outputnode, [('bias_image', 'bias_image')]),
         (synthstrip, outputnode, [('out_mask', 'out_mask')]),
         (post_n4, outputnode, [('output_image', 'out_corrected')]),
+        (pre_n4, betted_skin, [('output_image', 'in_file')]),
+        (betted_skin, outputnode, [('outskin_mask_file', 'out_skin_mask')]),
     ])
     # fmt: on
     return workflow
