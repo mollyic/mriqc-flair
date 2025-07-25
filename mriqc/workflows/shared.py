@@ -24,7 +24,7 @@
 #
 """Shared workflows."""
 
-from nipype.interfaces import utility as niu
+from nipype.interfaces import utility as niu, afni
 from nipype.pipeline import engine as pe
 
 
@@ -72,10 +72,12 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         name='synthstrip',
         num_threads=omp_nthreads,
     )
-
-    betted_skin = pe.Node(BET(frac =0.2), name='betted_skin', num_threads=omp_nthreads)
-    betted_skin.inputs.args = '-A'
-    betted_skin.inputs.surfaces = True
+    afni_hmask = pe.Node(
+        afni.Automask(dilate=3, outputtype="NIFTI_GZ"), name="hmask_automask"
+    )
+    # betted_skin = pe.Node(BET(frac =0.2), name='betted_skin', num_threads=omp_nthreads)
+    # betted_skin.inputs.args = '-A'
+    # betted_skin.inputs.surfaces = True
 
     final_masked = pe.Node(ApplyMask(), name='final_masked')
 
@@ -95,8 +97,10 @@ def synthstrip_wf(name='synthstrip_wf', omp_nthreads=None):
         (post_n4, outputnode, [('bias_image', 'bias_image')]),
         (synthstrip, outputnode, [('out_mask', 'out_mask')]),
         (post_n4, outputnode, [('output_image', 'out_corrected')]),
-        (pre_n4, betted_skin, [('output_image', 'in_file')]),
-        (betted_skin, outputnode, [('outskin_mask_file', 'out_skin_mask')]),
+        (pre_n4, afni_hmask, [('output_image', 'in_file')]),
+        (afni_hmask, outputnode, [('out_file', 'out_skin_mask')]),
+        # (pre_n4, betted_skin, [('output_image', 'in_file')]),
+        # (betted_skin, outputnode, [('outskin_mask_file', 'out_skin_mask')]),
     ])
     # fmt: on
     return workflow
